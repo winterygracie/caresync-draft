@@ -11,17 +11,21 @@ import {
 
 const WorkspaceContext = createContext(null)
 const SESSION_KEY = 'caresync.session'
-const STATE_KEY = 'caresync.state' // [ADDED] Key for persisting inventory/workspace data across reloads
+const STATE_KEY = 'caresync.state'
 
 export const todayISO = () => new Date().toISOString().slice(0, 10)
 export const isExpired = (batch, today = todayISO()) => batch.expiration_date <= today
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2))
 
-// [ADDED] Administrative Clerk accounts are not allowed to open Patients & Records
+// Role matchers
 const isClerk = (u) => /clerk/i.test(`${u?.role || ''} ${u?.title || ''}`)
-const PATIENT_PERM = /^(patients?|visits?)[._:\-]/i
+const isController = (u) => /controller/i.test(`${u?.role || ''} ${u?.title || ''}`)
 
-// [ADDED] Helper to load saved data from localStorage and restore any custom supplies
+const PATIENT_PERM = /^(patients?|visits?)[._:\-]/i
+const INVENTORY_PERM = /^(inventory|supplies|batches|dispens)/i
+const SYNC_PERM = /^sync[._:\-]/i
+
+// Helper to load saved data from localStorage and restore any custom supplies
 const loadState = () => {
   try {
     const parsed = JSON.parse(localStorage.getItem(STATE_KEY)) || {}
@@ -87,11 +91,10 @@ export function planFefo(batches, supply_id, quantity, today = todayISO()) {
 
 // ---------------------------------------------------------------------------
 export function WorkspaceProvider({ children }) {
-  const saved = useMemo(() => loadState(), []) // [ADDED] Read saved state once on mount
+  const saved = useMemo(() => loadState(), [])
   const [user, setUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem(SESSION_KEY)) } catch { return null }
   })
-  // [UPDATED] Initialize from saved localStorage if present, otherwise fixtures
   const [patients, setPatients] = useState(() => saved.patients || PATIENTS)
   const [visits, setVisits] = useState(() => saved.visits || VISITS)
   const [batches, setBatches] = useState(() => saved.batches || BATCHES)
@@ -105,7 +108,6 @@ export function WorkspaceProvider({ children }) {
   const [syncLog, setSyncLog] = useState([
     { id: uuid(), at: new Date(Date.now() - 1000 * 60 * 42), kind: 'info', message: 'Scheduled sync complete · 0 records pushed' },
   ])
-  // [UPDATED] Initialize ID counters from saved record counts so reloads never generate duplicate IDs
   const seq = useRef({
     patient: (saved.patients || PATIENTS).length,
     visit: (saved.visits || VISITS).length,
@@ -116,7 +118,6 @@ export function WorkspaceProvider({ children }) {
 
   const isOnline = online && !simulateOffline
 
-  // [ADDED] Save state (including any custom supplies) to localStorage whenever records change
   useEffect(() => {
     try {
       localStorage.setItem(
@@ -132,15 +133,25 @@ export function WorkspaceProvider({ children }) {
     return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down) }
   }, [])
 
-  // [UPDATED] Administrative Clerk is denied every patient/visit permission
+  // Strict role-based permission enforcement:
+  // - Administrative Clerk: ONLY inventory permissions
+  // - Data Controller: ONLY sync permissions (blocks patients & inventory)
   const can = useCallback((perm) => {
     if (!user) return false
-    if (isClerk(user) && PATIENT_PERM.test(perm)) return false
+    if (isClerk(user)) {
+      if (!INVENTORY_PERM.test(perm)) return false
+      return (PERMISSIONS[user.role] || []).includes(perm)
+    }
+    if (isController(user)) {
+      if (!SYNC_PERM.test(perm)) return false
+      return (PERMISSIONS[user.role] || []).includes(perm)
+    }
     return (PERMISSIONS[user.role] || []).includes(perm)
   }, [user])
 
-  // [ADDED] Use this in the sidebar and the /patients route to block access
-  const canAccessPatients = !!user && !isClerk(user)
+  const canAccessPatients = !!user && !isClerk(user) && !isController(user)
+  const canAccessInventory = !!user && !isController(user)
+  const canAccessSync = !!user && !isClerk(user)
 
   const signIn = useCallback((email) => {
     const found = USERS.find((u) => u.email.toLowerCase() === email.trim().toLowerCase())
@@ -185,7 +196,6 @@ export function WorkspaceProvider({ children }) {
   }
 
   // ---- inventory ----
-  // [UPDATED] Accept exact medicine name, medicine type, and dosage form when receiving supplies
   const receiveBatch = ({ supply_id, item_name, medicine_type, dosage_form, unit, batch_number, expiration_date, quantity }) => {
     const trimmedName = (item_name || '').trim()
     const matchedSupply =
@@ -227,7 +237,6 @@ export function WorkspaceProvider({ children }) {
     return batch
   }
 
-  // [UPDATED] Added therapeutic_type and dosage_form to dispense record
   const dispense = ({ supply_id, therapeutic_type, dosage_form, quantity, patient_id, visit_id }) => {
     const plan = planFefo(batches, supply_id, Number(quantity))
     if (!plan.ok) return plan
@@ -295,7 +304,6 @@ export function WorkspaceProvider({ children }) {
     setSyncing(false)
   }, [isOnline, syncing, pendingCount])
 
-  // Reconnect trigger + 60-second scheduler (well inside the 5-minute window).
   const wasOnline = useRef(isOnline)
   useEffect(() => {
     if (isOnline && !wasOnline.current) runSync('reconnect')
@@ -307,7 +315,7 @@ export function WorkspaceProvider({ children }) {
   }, [pendingCount, runSync])
 
   const value = {
-    user, signIn, signOut, can, canAccessPatients, // [UPDATED] exposes canAccessPatients
+    user, signIn, signOut, can, canAccessPatients, canAccessInventory, canAccessSync,
     patients, visits, batches, dispensing, adjustments, supplies, users: USERS,
     registerPatient, addVisit, receiveBatch, dispense, adjustStock,
     isOnline, simulateOffline, setSimulateOffline, syncing, pendingCount, lastSync, syncLog, runSync,
