@@ -8,8 +8,8 @@ import { useWorkspace } from '../lib/workspace.jsx'
 
 const ROLE_ICON = {
   [ROLES.DOCTOR]: Stethoscope,
-  [ROLES.REGISTRATION]: Users,
-  [ROLES.CLINICAL]: HeartPulse,
+  [ROLES.BARANGGAYHEALTWORKER]: Users,
+  [ROLES.NURSE]: HeartPulse,
   [ROLES.CLERK]: ClipboardList,
   [ROLES.CONTROLLER]: Database,
 }
@@ -17,10 +17,10 @@ const ROLE_ICON = {
 // Allowed route prefixes per role (Sync Center is EXCLUSIVELY for Data Controller)
 export const ALLOWED_ROUTES = {
   [ROLES.DOCTOR]: ['/app', '/app/patients', '/app/inventory'],
-  [ROLES.REGISTRATION]: ['/app', '/app/patients'],
-  [ROLES.CLINICAL]: ['/app', '/app/patients', '/app/inventory'],
+  [ROLES.BARANGGAYHEALTHWORKER]: ['/app', '/app/patients'],
+  [ROLES.NURSE]: ['/app', '/app/patients', '/app/inventory'],
   [ROLES.CLERK]: ['/app/inventory'],
-  [ROLES.CONTROLLER]: ['/app', '/app/sync'], // ONLY Dashboard and Sync Center
+  [ROLES.CONTROLLER]: ['/app', '/app/sync'], // Dashboard & Sync Center only
 }
 
 export const homeFor = (role) => {
@@ -36,7 +36,7 @@ export function RoleGuard({ children }) {
 
   if (!user) return children
 
-  // Data Controller: ONLY /app and /app/sync (Patients & Inventory are locked)
+  // Data Controller: ONLY /app and /app/sync (blocks /app/patients and /app/inventory)
   if (
     user.role === ROLES.CONTROLLER &&
     (pathname.startsWith('/app/patients') || pathname.startsWith('/app/inventory'))
