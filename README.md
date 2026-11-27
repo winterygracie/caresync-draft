@@ -16,12 +16,15 @@ CareSync is a web application built with Vite and JavaScript (`96.7%` JavaScript
 
 -[MaLouiseAngelica-Dano](https://github.com/MaLouiseAngelica-Dano) — Team Lead / Project Manager: Guides the work of the team, communicates with the stakeholders, and manages the deliverables. 
 
--Joem Philip Valentin[Jo3mYeah](https://github.com/Jo3mYeah)- Lead Developer: Codes the frontend and backend parts of the application.
+-Joem Philip Valentin[Jo3mYeah](https://github.com/Jo3mYeah)- QA / Tester: Tests the software, finds the bugs, and performs the quality assurance. 
 
--Remchon G. Cruz[remchoncruz-dev](https://github.com/remchoncruz-dev)- QA / Tester: Tests the software, finds the bugs, and performs the quality assurance. 
+-Remchon G. Cruz[remchoncruz-dev](https://github.com/remchoncruz-dev)- Systems Analyst: Collects the requirements, designs the workflows, and writes down the systems specifications.
+
 
 
 ## Setup
+
+
 
 ### Prerequisites
 
@@ -33,4 +36,12 @@ CareSync is a web application built with Vite and JavaScript (`96.7%` JavaScript
 
 ```bash
 git clone https://github.com/winterygracie/caresync-draft.git
-cd caresync-draft
+cd caresync-draft 
+
+2. Install dependencies
+
+npm install
+
+3. Start the development server
+Launch the Vite dev server and open the local URL shown in the terminal (usually http://localhost:5173)
+npm run dev
