@@ -17,9 +17,21 @@ export const todayISO = () => new Date().toISOString().slice(0, 10)
 export const isExpired = (batch, today = todayISO()) => batch.expiration_date <= today
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2))
 
-// [ADDED] Helper to load saved data from localStorage
+// [ADDED] Helper to load saved data from localStorage and restore any custom supplies
 const loadState = () => {
-  try { return JSON.parse(localStorage.getItem(STATE_KEY)) || {} } catch { return {} }
+  try {
+    const parsed = JSON.parse(localStorage.getItem(STATE_KEY)) || {}
+    if (Array.isArray(parsed.customSupplies)) {
+      for (const item of parsed.customSupplies) {
+        if (!SUPPLIES.some((s) => s.supply_id === item.supply_id)) {
+          SUPPLIES.push(item)
+        }
+      }
+    }
+    return parsed
+  } catch {
+    return {}
+  }
 }
 
 // ---- duplicate detection --------------------------------------------------
@@ -81,6 +93,7 @@ export function WorkspaceProvider({ children }) {
   const [batches, setBatches] = useState(() => saved.batches || BATCHES)
   const [dispensing, setDispensing] = useState(() => saved.dispensing || DISPENSING)
   const [adjustments, setAdjustments] = useState(() => saved.adjustments || STOCK_ADJUSTMENTS)
+  const [supplies, setSupplies] = useState(() => [...SUPPLIES])
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine)
   const [simulateOffline, setSimulateOffline] = useState(false)
   const [syncing, setSyncing] = useState(false)
@@ -99,12 +112,15 @@ export function WorkspaceProvider({ children }) {
 
   const isOnline = online && !simulateOffline
 
-  // [ADDED] Save state to localStorage whenever records change so reload keeps them
+  // [ADDED] Save state (including any custom supplies) to localStorage whenever records change
   useEffect(() => {
     try {
-      localStorage.setItem(STATE_KEY, JSON.stringify({ patients, visits, batches, dispensing, adjustments }))
+      localStorage.setItem(
+        STATE_KEY,
+        JSON.stringify({ patients, visits, batches, dispensing, adjustments, customSupplies: supplies })
+      )
     } catch {}
-  }, [patients, visits, batches, dispensing, adjustments])
+  }, [patients, visits, batches, dispensing, adjustments, supplies])
 
   useEffect(() => {
     const up = () => setOnline(true), down = () => setOnline(false)
@@ -157,10 +173,43 @@ export function WorkspaceProvider({ children }) {
   }
 
   // ---- inventory ----
-  const receiveBatch = ({ supply_id, batch_number, expiration_date, quantity }) => {
+  // [UPDATED] Accept exact medicine name, medicine type, and dosage form when receiving supplies
+  const receiveBatch = ({ supply_id, item_name, medicine_type, dosage_form, unit, batch_number, expiration_date, quantity }) => {
+    const trimmedName = (item_name || '').trim()
+    const matchedSupply =
+      SUPPLIES.find((s) => s.supply_id === supply_id) ||
+      (trimmedName ? SUPPLIES.find((s) => s.item_name.toLowerCase() === trimmedName.toLowerCase()) : null)
+
+    let resolvedSupplyId = matchedSupply?.supply_id
+    if (!resolvedSupplyId && trimmedName) {
+      resolvedSupplyId = `MED-${uuid().slice(0, 6).toUpperCase()}`
+      const newSupply = {
+        supply_id: resolvedSupplyId,
+        item_name: trimmedName,
+        category: medicine_type || 'Uncategorized',
+        dosage_form: dosage_form || '',
+        unit: unit || 'unit',
+        reorder_level: 10,
+      }
+      SUPPLIES.push(newSupply)
+      setSupplies([...SUPPLIES])
+    } else if (matchedSupply && (medicine_type || dosage_form)) {
+      if (medicine_type) matchedSupply.category = medicine_type
+      if (dosage_form) matchedSupply.dosage_form = dosage_form
+      setSupplies([...SUPPLIES])
+    }
+
     const batch = {
-      batch_id: `BAT-${uuid().slice(0, 6).toUpperCase()}`, supply_id, batch_number: batch_number.trim(), expiration_date,
-      quantity_on_hand: Number(quantity), received_date: todayISO(), received_by: user?.id, sync_status: status(),
+      batch_id: `BAT-${uuid().slice(0, 6).toUpperCase()}`,
+      supply_id: resolvedSupplyId || supply_id,
+      medicine_type: medicine_type || matchedSupply?.category || null,
+      dosage_form: dosage_form || matchedSupply?.dosage_form || null,
+      batch_number: batch_number.trim(),
+      expiration_date,
+      quantity_on_hand: Number(quantity),
+      received_date: todayISO(),
+      received_by: user?.id,
+      sync_status: status(),
     }
     setBatches((b) => [...b, batch])
     return batch
@@ -247,7 +296,7 @@ export function WorkspaceProvider({ children }) {
 
   const value = {
     user, signIn, signOut, can,
-    patients, visits, batches, dispensing, adjustments, supplies: SUPPLIES, users: USERS,
+    patients, visits, batches, dispensing, adjustments, supplies, users: USERS,
     registerPatient, addVisit, receiveBatch, dispense, adjustStock,
     isOnline, simulateOffline, setSimulateOffline, syncing, pendingCount, lastSync, syncLog, runSync,
   }
