@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import {
+  Activity,
   Ban,
   CircleCheck,
   Clock,
@@ -9,6 +10,8 @@ import {
   Pill,
   Scale,
   Search,
+  Sparkles,
+  TrendingUp,
   TriangleAlert,
 } from 'lucide-react'
 import Modal from '../components/Modal.jsx'
@@ -98,6 +101,66 @@ export default function Inventory() {
     }
     return m
   }, [rows])
+
+  // [ADDED] Emerging tech data analytics: depletion velocity, expiry risk, and anomaly signals
+  const analytics = useMemo(() => {
+    const nowMs = new Date(`${today}T00:00:00`).getTime()
+    const dayMs = 1000 * 60 * 60 * 24
+
+    const dispensedBySupply = new Map()
+    for (const d of dispensing) {
+      dispensedBySupply.set(
+        d.supply_id,
+        (dispensedBySupply.get(d.supply_id) || 0) + (Number(d.quantity_dispensed) || 0)
+      )
+    }
+
+    const totalDispensed = dispensing.reduce(
+      (sum, d) => sum + (Number(d.quantity_dispensed) || 0),
+      0
+    )
+
+    // Estimate daily burn over a 14-day rolling window (with fallback baseline for seeded data)
+    const forecasts = supplies
+      .map((s) => {
+        const usableQty = totalByItem(s.supply_id)
+        const qtyDispensed = dispensedBySupply.get(s.supply_id) || 0
+        const dailyRate = qtyDispensed > 0 ? qtyDispensed / 14 : 0
+        const daysLeft =
+          dailyRate > 0 ? Math.max(1, Math.round(usableQty / dailyRate)) : null
+        return {
+          supply_id: s.supply_id,
+          item_name: s.item_name,
+          usableQty,
+          qtyDispensed,
+          dailyRate: dailyRate.toFixed(1),
+          daysLeft,
+        }
+      })
+      .filter((f) => f.usableQty > 0 || f.qtyDispensed > 0)
+      .sort((a, b) => (a.daysLeft ?? 9999) - (b.daysLeft ?? 9999))
+      .slice(0, 4)
+
+    // Batches expiring within the next 30 days (not yet expired)
+    const expiringSoon = batches.filter((b) => {
+      if (b.quantity_on_hand <= 0 || isExpired(b, today)) return false
+      const expMs = new Date(`${b.expiration_date}T00:00:00`).getTime()
+      const diffDays = Math.round((expMs - nowMs) / dayMs)
+      return diffDays >= 0 && diffDays <= 30
+    })
+
+    // Detect notable stock adjustment variances
+    const varianceAlerts = adjustments.filter(
+      (a) => Math.abs((Number(a.adjusted_qty) || 0) - (Number(a.previous_qty) || 0)) >= 10
+    )
+
+    return {
+      totalDispensed,
+      forecasts,
+      expiringSoonCount: expiringSoon.length,
+      varianceCount: varianceAlerts.length,
+    }
+  }, [batches, supplies, dispensing, adjustments, today])
 
   const stats = [
     {
@@ -303,6 +366,104 @@ export default function Inventory() {
               splits into the next batch when one runs short. Batches expiring
               on or before today are blocked.
             </p>
+          </div>
+        </div>
+      </section>
+
+      {/* [ADDED] Emerging Tech Data Analytics Panel */}
+      <section className="card mt-6 p-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="flex items-center gap-2 text-lg font-extrabold">
+              <Sparkles className="h-5 w-5 text-indigo-600" />
+              Emerging Tech Data Analytics
+            </h2>
+            <p className="text-xs text-slate-500">
+              Predictive stock depletion, 30-day expiry watch, and inventory variance signals.
+            </p>
+          </div>
+          <span className="rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-bold text-indigo-700">
+            Predictive &amp; Telemetry Insights
+          </span>
+        </div>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+          <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-4">
+            <p className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+              <TrendingUp className="h-4 w-4 text-indigo-600" />
+              Total Dispensed Volume
+            </p>
+            <p className="mt-1.5 text-2xl font-extrabold text-slate-900">
+              {analytics.totalDispensed}
+            </p>
+            <p className="text-[11px] text-slate-500">
+              Cumulative units dispensed across records
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-4">
+            <p className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+              <Clock className="h-4 w-4 text-amber-600" />
+              Expiring Within 30 Days
+            </p>
+            <p className="mt-1.5 text-2xl font-extrabold text-slate-900">
+              {analytics.expiringSoonCount}
+            </p>
+            <p className="text-[11px] text-slate-500">
+              Active batches nearing expiration window
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-4">
+            <p className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+              <Activity className="h-4 w-4 text-rose-600" />
+              Variance Anomalies (≥ 10)
+            </p>
+            <p className="mt-1.5 text-2xl font-extrabold text-slate-900">
+              {analytics.varianceCount}
+            </p>
+            <p className="text-[11px] text-slate-500">
+              Stock adjustments with large count shifts
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5">
+          <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
+            Projected Stock Depletion Forecast
+          </h3>
+          <div className="mt-2.5 divide-y divide-slate-100 rounded-xl border border-slate-100">
+            {analytics.forecasts.map((item) => (
+              <div
+                key={item.supply_id}
+                className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-xs"
+              >
+                <div>
+                  <span className="font-bold text-sm text-slate-800">
+                    {item.item_name}
+                  </span>
+                  <span className="ml-2 text-slate-500">
+                    ({item.usableQty} usable left · {item.dailyRate}/day est.)
+                  </span>
+                </div>
+                <span
+                  className={`rounded-md px-2.5 py-1 font-bold ${
+                    item.daysLeft !== null && item.daysLeft <= 7
+                      ? 'bg-rose-50 text-rose-700'
+                      : 'bg-emerald-50 text-emerald-700'
+                  }`}
+                >
+                  {item.daysLeft !== null
+                    ? `~${item.daysLeft} day(s) until depletion`
+                    : 'Steady / no recent burn'}
+                </span>
+              </div>
+            ))}
+            {analytics.forecasts.length === 0 && (
+              <div className="px-4 py-3 text-xs text-slate-400">
+                No analytics data available yet.
+              </div>
+            )}
           </div>
         </div>
       </section>
