@@ -31,7 +31,7 @@ export default function Patients() {
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <label className="relative flex flex-1 items-center sm:max-w-md">
-  <SearchIcon className="pointer-events-none absolute left-3 h-4 w-4 text-slate-400" />
+  <Search className="pointer-events-none absolute left-3 h-4 w-4 text-slate-400" />
   <input
     type="text"
     onChange={(e) => setQ(e.target.value)}
