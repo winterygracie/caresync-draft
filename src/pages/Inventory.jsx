@@ -22,7 +22,7 @@ import {
   useWorkspace,
 } from '../lib/workspace.jsx'
 
-// [ADDED] Low-stock threshold constant set to 10 units
+// [ADDED] Low-stock threshold set to 10 units
 const LOW_STOCK_THRESHOLD = 10
 
 // [ADDED] Therapeutic medicine categories dropdown options
@@ -50,64 +50,49 @@ const DOSAGE_FORM_TYPES = [
 ]
 
 export default function Inventory() {
-  // [UPDATED] Added safe defaults (= [], () => false, || {}) to prevent crashes if workspace context is still loading
-  const {
-    batches = [],
-    supplies = [],
-    adjustments = [],
-    dispensing = [],
-    can = () => false,
-  } = useWorkspace() || {}
-
+  const { batches, supplies, adjustments, dispensing, can } = useWorkspace()
   const [q, setQ] = useState('')
-  const [dialog, setDialog] = useState(null)
+  const [dialog, setDialog] = useState(null) // { type, supply_id?, batch? }
   const today = todayISO()
 
   const rows = useMemo(() => {
     const t = q.trim().toLowerCase()
     return batches
-      .filter((b) => (Number(b.quantity_on_hand) || 0) > 0 || isExpired(b, today))
+      .filter((b) => b.quantity_on_hand > 0 || isExpired(b, today))
       .map((b) => ({
         ...b,
-        // [UPDATED] Added fallback supply lookup so missing supply records do not crash the table
-        supply: supplyById(b.supply_id) || supplies.find((s) => s.supply_id === b.supply_id) || {
-          supply_id: b.supply_id,
-          item_name: b.supply_id || 'Unknown item',
-          category: 'Uncategorized',
-          unit: 'unit',
-        },
+        supply: supplyById(b.supply_id),
         expired: isExpired(b, today),
       }))
-      .filter((b) => {
-        if (!t) return true
-        return (
-          (b.supply?.item_name || '').toLowerCase().includes(t) ||
-          (b.batch_number || '').toLowerCase().includes(t) ||
-          (b.supply_id || '').toLowerCase().includes(t)
-        )
-      })
-      .sort((a, b) => (a.expiration_date || '').localeCompare(b.expiration_date || ''))
-  }, [batches, supplies, q, today])
+      .filter(
+        (b) =>
+          !t ||
+          b.supply?.item_name?.toLowerCase().includes(t) ||
+          b.batch_number?.toLowerCase().includes(t) ||
+          b.supply_id?.toLowerCase().includes(t)
+      )
+      .sort((a, b) => a.expiration_date.localeCompare(b.expiration_date))
+  }, [batches, q, today])
 
   const expired = rows.filter((r) => r.expired)
-
   const totalByItem = (id) =>
     batches
       .filter((b) => b.supply_id === id && !isExpired(b, today))
-      .reduce((sum, b) => sum + (Number(b.quantity_on_hand) || 0), 0)
+      .reduce((s, b) => s + b.quantity_on_hand, 0)
 
-  // [UPDATED] Check low stock using LOW_STOCK_THRESHOLD (<= 10) instead of s.reorder_level
+  // [UPDATED] Use LOW_STOCK_THRESHOLD (10) instead of s.reorder_level
   const isLowStock = (id) => totalByItem(id) <= LOW_STOCK_THRESHOLD
   const lowItems = supplies.filter((s) => isLowStock(s.supply_id))
 
   const units = batches
     .filter((b) => !isExpired(b, today))
-    .reduce((sum, b) => sum + (Number(b.quantity_on_hand) || 0), 0)
+    .reduce((s, b) => s + b.quantity_on_hand, 0)
 
+  // FEFO "next to dispense" batch per supply
   const nextBatch = useMemo(() => {
     const m = new Map()
     for (const r of rows) {
-      if (!r.expired && (Number(r.quantity_on_hand) || 0) > 0 && !m.has(r.supply_id)) {
+      if (!r.expired && r.quantity_on_hand > 0 && !m.has(r.supply_id)) {
         m.set(r.supply_id, r.batch_id)
       }
     }
@@ -123,8 +108,8 @@ export default function Inventory() {
       ic: 'text-emerald-600',
     },
     {
+      // [UPDATED] Shows 10-unit low stock threshold
       n: lowItems.length,
-      // [UPDATED] Stat label reflects the 10-unit threshold
       label: 'Items at reorder level (≤ 10)',
       icon: TriangleAlert,
       tone: 'bg-sky-100',
@@ -149,12 +134,16 @@ export default function Inventory() {
   return (
     <div className="rise">
       <h1 className="text-4xl font-extrabold tracking-tight">Inventory</h1>
-      <p className="mt-1 text-slate-500">Manage batches, expiration dates, and stock movement using FEFO.</p>
+      <p className="mt-1 text-slate-500">
+        Manage batches, expiration dates, and stock movement using FEFO.
+      </p>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {stats.map((s) => (
           <div key={s.label} className={`rounded-2xl p-5 ${s.tone}`}>
-            <span className={`grid h-9 w-9 place-items-center rounded-lg bg-white/80 ${s.ic}`}>
+            <span
+              className={`grid h-9 w-9 place-items-center rounded-lg bg-white/80 ${s.ic}`}
+            >
               <s.icon className="h-4.5 w-4.5" />
             </span>
             <p className="mt-4 text-3xl font-extrabold">{s.n}</p>
@@ -175,7 +164,6 @@ export default function Inventory() {
         </label>
         {can('inventory.dispense') && (
           <button
-            type="button"
             onClick={() => setDialog({ type: 'dispense' })}
             className="btn-ghost ml-auto rounded-xl py-2.5"
           >
@@ -184,7 +172,6 @@ export default function Inventory() {
         )}
         {can('inventory.receive') && (
           <button
-            type="button"
             onClick={() => setDialog({ type: 'receive' })}
             className="inline-flex items-center gap-2 rounded-xl bg-indigo-deep px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-indigo-900/20 hover:brightness-110"
           >
@@ -202,14 +189,16 @@ export default function Inventory() {
         <div className="flex items-end justify-between px-6 pt-5">
           <div>
             <h2 className="text-lg font-extrabold">Medicine &amp; supply stock</h2>
-            {/* [UPDATED] Added low-stock threshold note to subtitle */}
+            {/* [UPDATED] Added low-stock threshold note */}
             <p className="text-xs text-slate-500">
-              FEFO: batches with the earliest expiry appear first · Low stock threshold: {LOW_STOCK_THRESHOLD} units
+              FEFO: batches with the earliest expiry appear first · Low stock threshold:{' '}
+              {LOW_STOCK_THRESHOLD} units
             </p>
           </div>
-          <p className="tracked text-[10px] font-bold uppercase text-slate-400">Sorted by expiry</p>
+          <p className="tracked text-[10px] font-bold uppercase text-slate-400">
+            Sorted by expiry
+          </p>
         </div>
-
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[820px] text-sm">
             <thead>
@@ -224,17 +213,20 @@ export default function Inventory() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {rows.map((r) => {
-                // [UPDATED] Use isLowStock(r.supply_id) (<= 10) for row status badge
+                // [UPDATED] Use isLowStock(r.supply_id) (<= 10)
                 const low = !r.expired && isLowStock(r.supply_id)
                 const isNext = nextBatch.get(r.supply_id) === r.batch_id
                 return (
-                  <tr key={r.batch_id} className={r.expired ? 'bg-rose-50/60' : ''}>
+                  <tr
+                    key={r.batch_id}
+                    className={r.expired ? 'bg-rose-50/60' : ''}
+                  >
                     <td className="px-6 py-3.5">
                       <p className={`font-bold ${r.expired ? 'text-rose-700' : ''}`}>
-                        {r.supply.item_name}
+                        {r.supply?.item_name}
                       </p>
                       <p className="text-[11px] text-slate-400">
-                        {r.supply_id} · {r.supply.category}
+                        {r.supply_id} · {r.supply?.category}
                       </p>
                     </td>
                     <td className="px-3 font-mono text-xs">
@@ -245,12 +237,18 @@ export default function Inventory() {
                         </span>
                       )}
                     </td>
-                    <td className={`px-3 ${r.expired ? 'font-bold text-rose-700' : ''}`}>
+                    <td
+                      className={`px-3 ${
+                        r.expired ? 'font-bold text-rose-700' : ''
+                      }`}
+                    >
                       {fmtDate(r.expiration_date)}
                     </td>
                     <td className="px-3">
                       <b>{r.quantity_on_hand}</b>{' '}
-                      <span className="text-[11px] text-slate-400">{r.supply.unit}s</span>
+                      <span className="text-[11px] text-slate-400">
+                        {r.supply?.unit}s
+                      </span>
                     </td>
                     <td className="px-3">
                       {r.expired ? (
@@ -260,7 +258,9 @@ export default function Inventory() {
                       ) : (
                         <span
                           className={`rounded-md px-2 py-1 text-[10px] font-bold ${
-                            low ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
+                            low
+                              ? 'bg-amber-50 text-amber-700'
+                              : 'bg-emerald-50 text-emerald-700'
                           }`}
                         >
                           {low ? 'Low stock' : 'In stock'}
@@ -270,10 +270,15 @@ export default function Inventory() {
                     <td className="space-x-2 whitespace-nowrap px-6 text-right">
                       {can('inventory.dispense') && (
                         <button
-                          type="button"
                           disabled={r.expired}
-                          title={r.expired ? 'Expired batches cannot be dispensed' : 'Dispense using FEFO'}
-                          onClick={() => setDialog({ type: 'dispense', supply_id: r.supply_id })}
+                          title={
+                            r.expired
+                              ? 'Expired batches cannot be dispensed'
+                              : 'Dispense using FEFO'
+                          }
+                          onClick={() =>
+                            setDialog({ type: 'dispense', supply_id: r.supply_id })
+                          }
                           className="btn-ghost py-1.5 text-xs disabled:cursor-not-allowed disabled:border-rose-200 disabled:bg-rose-50 disabled:text-rose-400"
                         >
                           {r.expired ? 'Blocked' : 'Dispense'}
@@ -281,7 +286,6 @@ export default function Inventory() {
                       )}
                       {can('inventory.adjust') && (
                         <button
-                          type="button"
                           onClick={() => setDialog({ type: 'adjust', batch: r })}
                           className="btn-ghost py-1.5 text-xs"
                         >
@@ -292,24 +296,17 @@ export default function Inventory() {
                   </tr>
                 )
               })}
-              {/* [ADDED] Empty state row when no batches match search or inventory */}
-              {rows.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-sm text-slate-400">
-                    No matching medicine batches found.
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
-
         <div className="m-6 flex gap-3 rounded-xl bg-rose-100/70 p-4 text-sm">
           <TriangleAlert className="h-5 w-5 shrink-0 text-rose-600" />
           <div>
             <p className="font-bold text-indigo-deep">FEFO rule applied</p>
             <p className="text-xs text-slate-600">
-              Dispensing always draws from the earliest-expiring valid batch and splits into the next batch when one runs short. Batches expiring on or before today are blocked.
+              Dispensing always draws from the earliest-expiring valid batch and
+              splits into the next batch when one runs short. Batches expiring
+              on or before today are blocked.
             </p>
           </div>
         </div>
@@ -319,43 +316,42 @@ export default function Inventory() {
         <AuditList
           title="Recent dispensing"
           icon={Pill}
-          items={dispensing.slice(0, 6).map((d) => {
-            const itemName =
-              supplyById(d.supply_id)?.item_name ||
-              supplies.find((s) => s.supply_id === d.supply_id)?.item_name ||
-              d.supply_id
-            const batchNum =
-              batches.find((b) => b.batch_id === d.batch_id)?.batch_number || d.batch_id || 'N/A'
-            return {
-              id: d.transaction_id,
-              main: `${itemName} × ${d.quantity_dispensed}`,
-              sub: `${batchNum} · ${d.patient_id || 'walk-in'} · ${userName(d.dispensed_by)}`,
-              at: d.dispensed_at,
-              pending: d.sync_status === 'pending',
-            }
-          })}
+          items={dispensing.slice(0, 6).map((d) => ({
+            id: d.transaction_id,
+            main: `${supplyById(d.supply_id)?.item_name} × ${d.quantity_dispensed}`,
+            sub: `${
+              batches.find((b) => b.batch_id === d.batch_id)?.batch_number
+            } · ${d.patient_id || 'walk-in'} · ${userName(d.dispensed_by)}`,
+            at: d.dispensed_at,
+            pending: d.sync_status === 'pending',
+          }))}
         />
         <AuditList
           title="Stock adjustment audit trail"
           icon={History}
-          items={adjustments.slice(0, 6).map((a) => {
-            const batchNum =
-              batches.find((b) => b.batch_id === a.batch_id)?.batch_number || a.batch_id || 'N/A'
-            return {
-              id: a.adjustment_id,
-              main: `${batchNum}: ${a.previous_qty} → ${a.adjusted_qty} (${a.reason})`,
-              sub: `${a.note || 'No note'} · ${userName(a.adjusted_by)}`,
-              at: a.adjusted_at,
-            }
-          })}
+          items={adjustments.slice(0, 6).map((a) => ({
+            id: a.adjustment_id,
+            main: `${
+              batches.find((b) => b.batch_id === a.batch_id)?.batch_number
+            }: ${a.previous_qty} → ${a.adjusted_qty} (${a.reason})`,
+            sub: `${a.note || 'No note'} · ${userName(a.adjusted_by)}`,
+            at: a.adjusted_at,
+          }))}
         />
       </div>
 
-      {dialog?.type === 'receive' && <ReceiveDialog onClose={() => setDialog(null)} />}
-      {dialog?.type === 'dispense' && (
-        <DispenseDialog initialSupply={dialog.supply_id} onClose={() => setDialog(null)} />
+      {dialog?.type === 'receive' && (
+        <ReceiveDialog onClose={() => setDialog(null)} />
       )}
-      {dialog?.type === 'adjust' && <AdjustDialog batch={dialog.batch} onClose={() => setDialog(null)} />}
+      {dialog?.type === 'dispense' && (
+        <DispenseDialog
+          initialSupply={dialog.supply_id}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog?.type === 'adjust' && (
+        <AdjustDialog batch={dialog.batch} onClose={() => setDialog(null)} />
+      )}
     </div>
   )
 }
@@ -378,50 +374,58 @@ function AuditList({ title, icon: Icon, items }) {
                 PENDING
               </span>
             )}
-            <span className="whitespace-nowrap text-slate-400">{fmtDate(i.at)}</span>
+            <span className="whitespace-nowrap text-slate-400">
+              {fmtDate(i.at)}
+            </span>
           </li>
         ))}
-        {items.length === 0 && <li className="py-4 text-sm text-slate-400">Nothing recorded yet.</li>}
+        {items.length === 0 && (
+          <li className="py-4 text-sm text-slate-400">Nothing recorded yet.</li>
+        )}
       </ul>
     </section>
   )
 }
 
 function ReceiveDialog({ onClose }) {
-  const { supplies = [], receiveBatch } = useWorkspace() || {}
+  const { supplies, receiveBatch } = useWorkspace()
   const [f, setF] = useState({
-    supply_id: supplies[0]?.supply_id || '',
+    supply_id: supplies[0].supply_id,
     batch_number: '',
     expiration_date: '',
     quantity: '',
   })
   const [err, setErr] = useState('')
-
   const set = (k) => (e) => {
     setF({ ...f, [k]: e.target.value })
     setErr('')
   }
-
   const submit = (e) => {
     e.preventDefault()
-    if (!f.supply_id) return setErr('Select a supply item.')
-    if (f.expiration_date <= todayISO()) {
-      return setErr('This batch is already expired and cannot be received into usable stock.')
-    }
-    if (!(Number(f.quantity) > 0)) return setErr('Enter a quantity greater than zero.')
-    receiveBatch?.(f)
+    if (f.expiration_date <= todayISO())
+      return setErr(
+        'This batch is already expired and cannot be received into usable stock.'
+      )
+    if (!(Number(f.quantity) > 0))
+      return setErr('Enter a quantity greater than zero.')
+    receiveBatch(f)
     onClose()
   }
-
   return (
     <Modal open onClose={onClose} label="Receive supplies">
       <form onSubmit={submit}>
         <h2 className="text-xl font-extrabold">Receive supplies</h2>
-        <p className="text-sm text-slate-500">Log an incoming delivery as a new batch.</p>
+        <p className="text-sm text-slate-500">
+          Log an incoming delivery as a new batch.
+        </p>
         <div className="mt-5 space-y-3">
           <div>
             <label className="label">Supply item *</label>
-            <select className="input" value={f.supply_id} onChange={set('supply_id')}>
+            <select
+              className="input"
+              value={f.supply_id}
+              onChange={set('supply_id')}
+            >
               {supplies.map((s) => (
                 <option key={s.supply_id} value={s.supply_id}>
                   {s.item_name} ({s.unit})
@@ -468,9 +472,7 @@ function ReceiveDialog({ onClose }) {
           <button type="button" onClick={onClose} className="btn-ghost">
             Cancel
           </button>
-          <button type="submit" className="btn-dark py-2">
-            Receive batch
-          </button>
+          <button className="btn-dark py-2">Receive batch</button>
         </div>
       </form>
     </Modal>
@@ -478,72 +480,24 @@ function ReceiveDialog({ onClose }) {
 }
 
 function DispenseDialog({ initialSupply, onClose }) {
-  const {
-    supplies = [],
-    batches = [],
-    patients = [],
-    visits = [],
-    dispense,
-  } = useWorkspace() || {}
-
-  const defaultSupplyId = initialSupply || supplies[0]?.supply_id || 'MED-01'
-  const [supply_id, setSupply] = useState(defaultSupplyId)
-  // [ADDED] State for Therapeutic Type and Dosage Form Type dropdowns
+  const { supplies, batches, patients, visits, dispense } = useWorkspace()
+  const [supply_id, setSupply] = useState(initialSupply || 'MED-01')
+  // [ADDED] State for Therapeutic Type and Dosage Form Type
   const [therapeutic_type, setTherapeuticType] = useState(THERAPEUTIC_TYPES[0])
   const [dosage_form, setDosageForm] = useState(DOSAGE_FORM_TYPES[0])
-  const [quantity, setQty] = useState(1)
+  const [quantity, setQty] = useState(initialSupply === undefined ? 40 : 1)
   const [patient_id, setPatient] = useState('')
   const [done, setDone] = useState(null)
-  const [err, setErr] = useState('')
-
-  // [UPDATED] Safe supply lookup fallback so missing MED-01 or empty supplies array won't crash
-  const supply =
-    supplyById(supply_id) ||
-    supplies.find((s) => s.supply_id === supply_id) ||
-    supplies[0] || {
-      supply_id,
-      item_name: supply_id,
-      unit: 'unit',
-    }
-
-  const numericQty = Number(quantity) || 0
-  // [UPDATED] Wrapped planFefo in try/catch with fallback object to prevent runtime crashes
-  const plan = useMemo(() => {
-    try {
-      return planFefo(batches, supply_id, numericQty) || { ok: false, available: 0, allocations: [] }
-    } catch {
-      return { ok: false, available: 0, allocations: [] }
-    }
-  }, [batches, supply_id, numericQty])
-
+  const supply = supplyById(supply_id)
+  const plan = planFefo(batches, supply_id, Number(quantity) || 0)
   const expiredHere = batches.filter(
-    (b) => b.supply_id === supply_id && isExpired(b) && (Number(b.quantity_on_hand) || 0) > 0
+    (b) => b.supply_id === supply_id && isExpired(b) && b.quantity_on_hand > 0
   )
-
   const lastVisit = visits
     .filter((v) => v.patient_id === patient_id)
-    .sort((a, b) => (b.visit_date || '').localeCompare(a.visit_date || ''))[0]
+    .sort((a, b) => b.visit_date.localeCompare(a.visit_date))[0]
 
-  // [UPDATED] Safe confirm handler passing therapeutic_type & dosage_form to dispense()
-  const handleConfirm = () => {
-    if (!plan?.ok || numericQty <= 0) return
-    try {
-      const result = dispense?.({
-        supply_id,
-        therapeutic_type,
-        dosage_form,
-        quantity: numericQty,
-        patient_id,
-        visit_id: lastVisit?.visit_id,
-      })
-      setDone(result || { allocations: plan.allocations || [] })
-    } catch (e) {
-      setErr(e?.message || 'Unable to complete dispensing.')
-    }
-  }
-
-  if (done) {
-    const allocations = Array.isArray(done.allocations) ? done.allocations : plan.allocations || []
+  if (done)
     return (
       <Modal open onClose={onClose} label="Dispensed">
         <div className="text-center">
@@ -551,39 +505,43 @@ function DispenseDialog({ initialSupply, onClose }) {
             <CircleCheck className="h-6 w-6" />
           </span>
           <h2 className="mt-3 text-xl font-extrabold">
-            Dispensed {numericQty} {supply.unit}s
+            Dispensed {quantity} {supply.unit}s
           </h2>
-          {/* [ADDED] Display selected therapeutic type and dosage form in confirmation modal */}
+          {/* [ADDED] Display selected therapeutic type and dosage form */}
           <p className="mt-1 text-xs text-slate-500">
             {therapeutic_type} · {dosage_form}
           </p>
           <ul className="mt-3 space-y-1 text-sm">
-            {allocations.map((a, idx) => (
-              <li key={a.batch?.batch_id || idx}>
-                {a.quantity} from <b className="font-mono">{a.batch?.batch_number || 'Batch'}</b>{' '}
-                {a.batch?.expiration_date && (
-                  <span className="text-slate-400">(exp {fmtDate(a.batch.expiration_date)})</span>
-                )}
+            {done.allocations.map((a) => (
+              <li key={a.batch.batch_id}>
+                {a.quantity} from <b className="font-mono">{a.batch.batch_number}</b>{' '}
+                <span className="text-slate-400">
+                  (exp {fmtDate(a.batch.expiration_date)})
+                </span>
               </li>
             ))}
           </ul>
-          <button type="button" onClick={onClose} className="btn-dark mt-5">
+          <button onClick={onClose} className="btn-dark mt-5">
             Done
           </button>
         </div>
       </Modal>
     )
-  }
 
   return (
     <Modal open onClose={onClose} label="Dispense supply">
       <h2 className="text-xl font-extrabold">Dispense supply</h2>
-      <p className="text-sm text-slate-500">Batches are picked automatically — earliest expiry first.</p>
-
+      <p className="text-sm text-slate-500">
+        Batches are picked automatically — earliest expiry first.
+      </p>
       <div className="mt-5 space-y-3">
         <div>
           <label className="label">Supply item</label>
-          <select className="input" value={supply_id} onChange={(e) => setSupply(e.target.value)}>
+          <select
+            className="input"
+            value={supply_id}
+            onChange={(e) => setSupply(e.target.value)}
+          >
             {supplies.map((s) => (
               <option key={s.supply_id} value={s.supply_id}>
                 {s.item_name}
@@ -591,8 +549,7 @@ function DispenseDialog({ initialSupply, onClose }) {
             ))}
           </select>
         </div>
-
-        {/* [ADDED] Therapeutic type dropdown */}
+        {/* [ADDED] Therapeutic Type dropdown */}
         <div>
           <label className="label">Therapeutic type</label>
           <select
@@ -607,8 +564,7 @@ function DispenseDialog({ initialSupply, onClose }) {
             ))}
           </select>
         </div>
-
-        {/* [ADDED] Dosage form type dropdown paired with Dosage / Quantity */}
+        {/* [ADDED] Dosage Form Type dropdown paired with Dosage / Quantity */}
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <label className="label">Dosage form type</label>
@@ -625,7 +581,9 @@ function DispenseDialog({ initialSupply, onClose }) {
             </select>
           </div>
           <div>
-            <label className="label">Dosage / Quantity ({supply.unit}s)</label>
+            <label className="label">
+              Dosage / Quantity ({supply.unit}s)
+            </label>
             <input
               type="number"
               min="1"
@@ -635,10 +593,13 @@ function DispenseDialog({ initialSupply, onClose }) {
             />
           </div>
         </div>
-
         <div>
           <label className="label">Patient (optional)</label>
-          <select className="input" value={patient_id} onChange={(e) => setPatient(e.target.value)}>
+          <select
+            className="input"
+            value={patient_id}
+            onChange={(e) => setPatient(e.target.value)}
+          >
             <option value="">Walk-in / not linked</option>
             {patients.map((p) => (
               <option key={p.patient_id} value={p.patient_id}>
@@ -650,47 +611,64 @@ function DispenseDialog({ initialSupply, onClose }) {
       </div>
 
       <div className="mt-4 rounded-xl bg-slate-50 p-4">
-        <p className="tracked text-[10px] font-bold uppercase text-slate-500">FEFO allocation preview</p>
+        <p className="tracked text-[10px] font-bold uppercase text-slate-500">
+          FEFO allocation preview
+        </p>
         {expiredHere.map((b) => (
-          <p key={b.batch_id} className="mt-2 flex items-center gap-2 text-xs font-semibold text-rose-700">
-            <Ban className="h-3.5 w-3.5" /> {b.batch_number} expired {fmtDate(b.expiration_date)} — skipped
+          <p
+            key={b.batch_id}
+            className="mt-2 flex items-center gap-2 text-xs font-semibold text-rose-700"
+          >
+            <Ban className="h-3.5 w-3.5" /> {b.batch_number} expired{' '}
+            {fmtDate(b.expiration_date)} — skipped
           </p>
         ))}
-        {plan?.ok &&
-          (plan.allocations || []).map((a, i) => (
+        {plan.ok &&
+          plan.allocations.map((a, i) => (
             <p key={a.batch.batch_id} className="mt-2 flex items-center gap-2 text-sm">
               <span className="grid h-5 w-5 place-items-center rounded-full bg-indigo-600 text-[10px] font-bold text-white">
                 {i + 1}
               </span>
-              <b>{a.quantity}</b> from <span className="font-mono">{a.batch.batch_number}</span>{' '}
+              <b>{a.quantity}</b> from{' '}
+              <span className="font-mono">{a.batch.batch_number}</span>{' '}
               <span className="text-xs text-slate-400">
-                exp {fmtDate(a.batch.expiration_date)} · {a.batch.quantity_on_hand - a.quantity} left
+                exp {fmtDate(a.batch.expiration_date)} ·{' '}
+                {a.batch.quantity_on_hand - a.quantity} left
               </span>
             </p>
           ))}
-        {plan?.ok && (plan.allocations || []).length > 1 && (
+        {plan.ok && plan.allocations.length > 1 && (
           <p className="mt-2 text-xs font-semibold text-indigo-700">
-            Split across {plan.allocations.length} batches because the earliest batch is short.
+            Split across {plan.allocations.length} batches because the earliest
+            batch is short.
           </p>
         )}
-        {plan && !plan.ok && (
+        {!plan.ok && (
           <p className="mt-2 text-sm font-semibold text-rose-700">
-            Only {plan.available ?? 0} usable {supply.unit}s available.
+            Only {plan.available} usable {supply.unit}s available.
           </p>
         )}
       </div>
-
-      {err && <p className="mt-3 text-xs font-semibold text-rose-600">{err}</p>}
 
       <div className="mt-5 flex justify-end gap-2">
         <button type="button" onClick={onClose} className="btn-ghost">
           Cancel
         </button>
-        {/* [UPDATED] Calls handleConfirm which submits therapeutic_type & dosage_form */}
+        {/* [UPDATED] Include therapeutic_type and dosage_form in dispense() */}
         <button
-          type="button"
-          disabled={!plan?.ok || numericQty <= 0}
-          onClick={handleConfirm}
+          disabled={!plan.ok || !(Number(quantity) > 0)}
+          onClick={() =>
+            setDone(
+              dispense({
+                supply_id,
+                therapeutic_type,
+                dosage_form,
+                quantity,
+                patient_id,
+                visit_id: lastVisit?.visit_id,
+              })
+            )
+          }
           className="btn-dark py-2 disabled:opacity-40"
         >
           Confirm dispensing
@@ -701,25 +679,28 @@ function DispenseDialog({ initialSupply, onClose }) {
 }
 
 function AdjustDialog({ batch, onClose }) {
-  const { adjustStock } = useWorkspace() || {}
-  const [qty, setQty] = useState(batch?.quantity_on_hand ?? 0)
+  const { adjustStock } = useWorkspace()
+  const [qty, setQty] = useState(batch.quantity_on_hand)
   const [reason, setReason] = useState('Physical Count')
   const [note, setNote] = useState('')
-
   const submit = (e) => {
     e.preventDefault()
-    adjustStock?.({ batch_id: batch.batch_id, adjusted_qty: Number(qty), reason, note })
+    adjustStock({
+      batch_id: batch.batch_id,
+      adjusted_qty: qty,
+      reason,
+      note,
+    })
     onClose()
   }
-
   return (
     <Modal open onClose={onClose} label="Adjust stock">
       <form onSubmit={submit}>
         <h2 className="text-xl font-extrabold">Physical stock adjustment</h2>
         <p className="text-sm text-slate-500">
-          {batch?.supply?.item_name || batch?.supply_id} ·{' '}
-          <span className="font-mono">{batch?.batch_number}</span> · system count{' '}
-          {batch?.quantity_on_hand}
+          {batch.supply.item_name} ·{' '}
+          <span className="font-mono">{batch.batch_number}</span> · system count{' '}
+          {batch.quantity_on_hand}
         </p>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <div>
@@ -735,7 +716,11 @@ function AdjustDialog({ batch, onClose }) {
           </div>
           <div>
             <label className="label">Reason *</label>
-            <select className="input" value={reason} onChange={(e) => setReason(e.target.value)}>
+            <select
+              className="input"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            >
               <option>Physical Count</option>
               <option>Damaged</option>
               <option>Audit</option>
@@ -760,13 +745,9 @@ function AdjustDialog({ batch, onClose }) {
           <button type="button" onClick={onClose} className="btn-ghost">
             Cancel
           </button>
-          <button type="submit" className="btn-dark py-2">
-            Record adjustment
-          </button>
+          <button className="btn-dark py-2">Record adjustment</button>
         </div>
       </form>
     </Modal>
   )
 }
-
-```
