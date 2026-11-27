@@ -318,10 +318,14 @@ export default function Inventory() {
           icon={Pill}
           items={dispensing.slice(0, 6).map((d) => ({
             id: d.transaction_id,
-            main: `${supplyById(d.supply_id)?.item_name} × ${d.quantity_dispensed}`,
-            sub: `${
-              batches.find((b) => b.batch_id === d.batch_id)?.batch_number
-            } · ${d.patient_id || 'walk-in'} · ${userName(d.dispensed_by)}`,
+            // [UPDATED] Show dosage form alongside item name and quantity
+            main: `${supplyById(d.supply_id)?.item_name} × ${d.quantity_dispensed}${
+              d.dosage_form ? ` (${d.dosage_form})` : ''
+            }`,
+            // [UPDATED] Show therapeutic type in dispensing history details
+            sub: `${[d.therapeutic_type, batches.find((b) => b.batch_id === d.batch_id)?.batch_number]
+              .filter(Boolean)
+              .join(' · ')} · ${d.patient_id || 'walk-in'} · ${userName(d.dispensed_by)}`,
             at: d.dispensed_at,
             pending: d.sync_status === 'pending',
           }))}
