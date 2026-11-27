@@ -46,28 +46,36 @@ export default function AppShell() {
 
   if (!user) return null
 
-  const isBhw = user.role === ROLES.REGISTRATION || user.role === 'Barangay Health Worker'
-  const clerk = isClerk(user)
-  const controller = isController(user)
-
-  // Administrative Clerk: ONLY /app/inventory
-  if (clerk && !pathname.startsWith('/app/inventory')) {
-    return <Navigate to="/app/inventory" replace />
-  }
+  const isBhw = user.role === ROLES?.REGISTRATION || user.role === 'Barangay Health Worker'
+  const clerk = isClerk(user) || user.role === ROLES?.CLERK
+  const controller = isController(user) || user.role === ROLES?.CONTROLLER
 
   // Data Controller: ONLY /app/sync (blocks Dashboard, Patients & Records, and Inventory)
   if (controller && !pathname.startsWith('/app/sync')) {
     return <Navigate to="/app/sync" replace />
   }
 
+  // Sync Center: EXCLUSIVELY accessible by Data Controller
+  if (!controller && pathname.startsWith('/app/sync')) {
+    return <Navigate to={clerk ? '/app/inventory' : '/app'} replace />
+  }
+
+  // Administrative Clerk: ONLY /app/inventory
+  if (clerk && !pathname.startsWith('/app/inventory')) {
+    return <Navigate to="/app/inventory" replace />
+  }
+
   const isLocked = (n) => {
+    // Sync Center is EXCLUSIVELY unlocked for Data Controller
+    if (n.to === '/app/sync') return !controller
+    if (controller) return true
     if (clerk) return n.to !== '/app/inventory'
-    if (controller) return n.to !== '/app/sync'
     if (isBhw && n.allowBhw === false) return true
     if (isBhw && n.allowBhw === true) return false
     return Boolean(n.perm && !can(n.perm))
   }
 
+  // For Data Controller and Administrative Clerk, only display their permitted tab
   const visibleNav = NAV.filter((n) => !(controller || clerk) || !isLocked(n))
 
   return (
@@ -176,9 +184,7 @@ export default function AppShell() {
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
             <SyncBadge
               onClick={() =>
-                !isBhw && !clerk && (controller || can('sync.monitor'))
-                  ? navigate('/app/sync')
-                  : setHelpOpen(!helpOpen)
+                controller ? navigate('/app/sync') : setHelpOpen(!helpOpen)
               }
             />
             <button
