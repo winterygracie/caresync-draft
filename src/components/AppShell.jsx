@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   Bell,
   CalendarDays,
@@ -47,8 +47,20 @@ export default function AppShell() {
   if (!user) return null
 
   const isBhw = user.role === ROLES.REGISTRATION
+  const isClerk = user.role === ROLES.CLERK
+  const isController = user.role === ROLES.CONTROLLER
+
+  // Hard URL redirect so Clerk only accesses /app/inventory and Data Controller only accesses /app/sync
+  if (isClerk && !pathname.startsWith('/app/inventory')) {
+    return <Navigate to="/app/inventory" replace />
+  }
+  if (isController && !pathname.startsWith('/app/sync')) {
+    return <Navigate to="/app/sync" replace />
+  }
 
   const isLocked = (n) => {
+    if (isClerk) return n.to !== '/app/inventory'
+    if (isController) return n.to !== '/app/sync'
     if (isBhw && n.allowBhw === false) return true
     if (isBhw && n.allowBhw === true) return false
     return Boolean(n.perm && !can(n.perm))
@@ -158,7 +170,7 @@ export default function AppShell() {
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
             <SyncBadge
               onClick={() =>
-                !isBhw && can('sync.monitor')
+                !isBhw && !isClerk && can('sync.monitor')
                   ? navigate('/app/sync')
                   : setHelpOpen(!helpOpen)
               }
