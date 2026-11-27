@@ -125,7 +125,7 @@ export default function SignInModal({ open, onClose, mode = 'signin' }) {
             <Lock className="h-4 w-4" /> Sign In
           </button>
           <p className="mt-3 text-[11px] text-slate-400">
-            Demo password for every account: <span className="font-mono font-semibold text-slate-600">{DEMO_PASSWORD}</span>
+            Demo password for every account:<span className="font-mono font-semibold text-slate-600">{DEMO_PASSWORD}</span>
           </p>
         </form>
 
