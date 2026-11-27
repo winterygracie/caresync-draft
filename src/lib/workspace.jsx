@@ -11,10 +11,16 @@ import {
 
 const WorkspaceContext = createContext(null)
 const SESSION_KEY = 'caresync.session'
+const STATE_KEY = 'caresync.state' // [ADDED] Key for persisting inventory/workspace data across reloads
 
 export const todayISO = () => new Date().toISOString().slice(0, 10)
 export const isExpired = (batch, today = todayISO()) => batch.expiration_date <= today
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2))
+
+// [ADDED] Helper to load saved data from localStorage
+const loadState = () => {
+  try { return JSON.parse(localStorage.getItem(STATE_KEY)) || {} } catch { return {} }
+}
 
 // ---- duplicate detection --------------------------------------------------
 const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z]/g, '')
@@ -65,14 +71,16 @@ export function planFefo(batches, supply_id, quantity, today = todayISO()) {
 
 // ---------------------------------------------------------------------------
 export function WorkspaceProvider({ children }) {
+  const saved = useMemo(() => loadState(), []) // [ADDED] Read saved state once on mount
   const [user, setUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem(SESSION_KEY)) } catch { return null }
   })
-  const [patients, setPatients] = useState(PATIENTS)
-  const [visits, setVisits] = useState(VISITS)
-  const [batches, setBatches] = useState(BATCHES)
-  const [dispensing, setDispensing] = useState(DISPENSING)
-  const [adjustments, setAdjustments] = useState(STOCK_ADJUSTMENTS)
+  // [UPDATED] Initialize from saved localStorage if present, otherwise fixtures
+  const [patients, setPatients] = useState(() => saved.patients || PATIENTS)
+  const [visits, setVisits] = useState(() => saved.visits || VISITS)
+  const [batches, setBatches] = useState(() => saved.batches || BATCHES)
+  const [dispensing, setDispensing] = useState(() => saved.dispensing || DISPENSING)
+  const [adjustments, setAdjustments] = useState(() => saved.adjustments || STOCK_ADJUSTMENTS)
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine)
   const [simulateOffline, setSimulateOffline] = useState(false)
   const [syncing, setSyncing] = useState(false)
@@ -83,6 +91,13 @@ export function WorkspaceProvider({ children }) {
   const seq = useRef({ patient: PATIENTS.length, visit: VISITS.length, dispense: DISPENSING.length, adjust: STOCK_ADJUSTMENTS.length, offline: 0 })
 
   const isOnline = online && !simulateOffline
+
+  // [ADDED] Save state to localStorage whenever records change so reload keeps them
+  useEffect(() => {
+    try {
+      localStorage.setItem(STATE_KEY, JSON.stringify({ patients, visits, batches, dispensing, adjustments }))
+    } catch {}
+  }, [patients, visits, batches, dispensing, adjustments])
 
   useEffect(() => {
     const up = () => setOnline(true), down = () => setOnline(false)
@@ -144,7 +159,8 @@ export function WorkspaceProvider({ children }) {
     return batch
   }
 
-  const dispense = ({ supply_id, quantity, patient_id, visit_id }) => {
+  // [UPDATED] Added therapeutic_type and dosage_form to dispense record
+  const dispense = ({ supply_id, therapeutic_type, dosage_form, quantity, patient_id, visit_id }) => {
     const plan = planFefo(batches, supply_id, Number(quantity))
     if (!plan.ok) return plan
     const take = new Map(plan.allocations.map((a) => [a.batch.batch_id, a.quantity]))
@@ -153,7 +169,8 @@ export function WorkspaceProvider({ children }) {
       seq.current.dispense += 1
       return {
         transaction_id: `DSP-${String(seq.current.dispense).padStart(4, '0')}`, client_uuid: uuid(), patient_id: patient_id || null,
-        visit_id: visit_id || null, supply_id, batch_id: a.batch.batch_id, quantity_dispensed: a.quantity, dispensed_by: user?.id,
+        visit_id: visit_id || null, supply_id, therapeutic_type: therapeutic_type || null, dosage_form: dosage_form || null,
+        batch_id: a.batch.batch_id, quantity_dispensed: a.quantity, dispensed_by: user?.id,
         dispensed_at: new Date().toISOString(), sync_status: status(),
       }
     })
