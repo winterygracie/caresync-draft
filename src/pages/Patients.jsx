@@ -31,9 +31,15 @@ export default function Patients() {
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <label className="relative flex-1 sm:max-w-md">
-          <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} className="input rounded-xl py-2.5 pl-10" placeholder="Search by patient name or ID (e.g. AMP-2026-0003)" autoFocus />
-        </label>
+  <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+  <input
+    value={q}
+    onChange={(e) => setQ(e.target.value)}
+    className="input w-full rounded-xl py-2.5 !pl-10"
+    placeholder="Search by patient name or ID (e.g. AMP-2026-0003)"
+    autoFocus
+  />
+</label>
         {can('patients.register') && (
           <button onClick={() => setRegisterOpen(true)} className="ml-auto inline-flex items-center gap-2 rounded-xl bg-indigo-deep px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-indigo-900/20 transition hover:brightness-110">
             <Plus className="h-4 w-4" /> Register patient
