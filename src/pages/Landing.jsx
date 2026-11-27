@@ -81,7 +81,7 @@ export default function Landing() {
           </div>
         </section>
 
-        <PreviewFrame onSignIn={handleSignInAction} />
+        <PreviewFrame />
       </main>
 
       <SignInModal
@@ -95,7 +95,7 @@ export default function Landing() {
 
 /* ---------------- system introduction & sign-in preview ---------------- */
 
-function PreviewFrame({ onSignIn }) {
+function PreviewFrame() {
   return (
     <div className="rise relative" style={{ animationDelay: '.15s' }}>
       <div className="absolute inset-x-6 -bottom-5 h-10 rounded-b-2xl bg-white/60 shadow-lg" />
@@ -181,14 +181,6 @@ function PreviewFrame({ onSignIn }) {
               <ShieldCheck className="h-4 w-4 shrink-0 text-indigo-500" />
               Sign in with your assigned staff account to access your modules.
             </div>
-
-            <button
-              type="button"
-              onClick={onSignIn}
-              className="btn-dark mt-5 w-full py-2.5 text-xs"
-            >
-              Sign In
-            </button>
           </div>
         </div>
       </div>
