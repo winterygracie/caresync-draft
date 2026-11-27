@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { WorkspaceProvider, useWorkspace } from './lib/workspace.jsx'
 import Landing from './pages/Landing.jsx'
 import AppShell from './components/AppShell.jsx'
@@ -9,8 +9,28 @@ import SyncCenter from './pages/SyncCenter.jsx'
 
 function Guard({ perm, children }) {
   const { user, can } = useWorkspace()
+  const { pathname } = useLocation()
+
   if (!user) return <Navigate to="/" replace />
-  if (perm && !can(perm)) return <Navigate to="/app" replace />
+
+  const role = `${user.role || ''} ${user.title || ''}`
+  const isClerk = /clerk/i.test(role)
+  const isController = /controller/i.test(role)
+
+  // Administrative Clerk: ONLY /app/inventory
+  if (isClerk && !pathname.startsWith('/app/inventory')) {
+    return <Navigate to="/app/inventory" replace />
+  }
+
+  // Data Controller: ONLY /app/sync (blocks Dashboard, Patients & Records, and Inventory)
+  if (isController && !pathname.startsWith('/app/sync')) {
+    return <Navigate to="/app/sync" replace />
+  }
+
+  if (perm && !can(perm)) {
+    return <Navigate to={isClerk ? '/app/inventory' : isController ? '/app/sync' : '/app'} replace />
+  }
+
   return children
 }
 
