@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+this is the landing page: import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronDown, ShieldCheck, TriangleAlert, X, Lock, RefreshCw, Share, Plus, Copy, PanelLeft, CircleCheck, UserPlus } from 'lucide-react'
+import { ChevronDown, ShieldCheck, TriangleAlert, X, Lock, RefreshCw, Share, Plus, Copy, PanelLeft, CircleCheck } from 'lucide-react'
 import { PulseMark } from '../components/Logo.jsx'
 import SignInModal, { homeFor } from '../components/SignInModal.jsx'
 import { findSimilarPatients, fmtDate, useWorkspace } from '../lib/workspace.jsx'
@@ -10,7 +10,6 @@ export default function Landing() {
   const { user } = useWorkspace()
   const navigate = useNavigate()
   const [modal, setModal] = useState(null)
-  const isBhw = user?.role?.toLowerCase() === 'bhw'
   const openSignIn = () => (user ? navigate(homeFor(user.role)) : setModal('signin'))
 
   return (
@@ -38,28 +37,14 @@ export default function Landing() {
             A simpler, more connected workspace for the people caring for Ampayon, Butuan City.
           </p>
           <div className="mt-10 flex flex-wrap items-center gap-4">
-            {isBhw ? (
-              <button
-                onClick={() => navigate('/register-patient')}
-                className="btn-dark inline-flex items-center gap-2 px-7 py-3.5 text-[15px]"
-              >
-                <UserPlus className="h-4 w-4" /> Register Patient Page
-              </button>
-            ) : (
-              <button
-                onClick={() => (user ? openSignIn() : setModal('create'))}
-                className="btn-dark px-7 py-3.5 text-[15px]"
-              >
-                Create Account
-              </button>
-            )}
+            <button onClick={() => (user ? openSignIn() : setModal('create'))} className="btn-dark px-7 py-3.5 text-[15px]">Create Account</button>
             <span className="flex items-center gap-2 text-xs font-semibold text-slate-500">
               <CircleCheck className="h-4 w-4 text-emerald-500" /> Works offline · syncs within 5 minutes
             </span>
           </div>
         </section>
 
-        <PreviewFrame isBhw={isBhw} onGoRegister={() => navigate('/register-patient')} />
+        <PreviewFrame />
       </main>
 
       <SignInModal open={!!modal} mode={modal} onClose={() => setModal(null)} />
@@ -69,7 +54,7 @@ export default function Landing() {
 
 /* ---------------- interactive product preview ---------------- */
 
-function PreviewFrame({ isBhw, onGoRegister }) {
+function PreviewFrame() {
   return (
     <div className="rise relative" style={{ animationDelay: '.15s' }}>
       <div className="absolute inset-x-6 -bottom-5 h-10 rounded-b-2xl bg-white/60 shadow-lg" />
@@ -85,28 +70,9 @@ function PreviewFrame({ isBhw, onGoRegister }) {
           </div>
           <div className="flex gap-2 text-slate-400"><Share className="h-3.5 w-3.5" /><Plus className="h-3.5 w-3.5" /><Copy className="h-3.5 w-3.5" /></div>
         </div>
-        <div className="grid-canvas relative flex min-h-[520px] items-center justify-center gap-5 p-5 sm:p-8">
-          {isBhw ? (
-            <div className="max-w-sm rounded-2xl bg-white p-6 text-center shadow-[0_12px_40px_-12px_rgba(18,18,38,.2)] ring-1 ring-slate-200/70">
-              <p className="tracked text-[10px] font-bold uppercase text-indigo-500">BHW Mode Active</p>
-              <h2 className="mt-1 text-lg font-extrabold text-ink">Patient registration moved</h2>
-              <p className="mt-2 text-xs leading-relaxed text-slate-500">
-                The Register patient fill-up form is now on its own page so the landing screen stays clean.
-              </p>
-              <button
-                type="button"
-                onClick={onGoRegister}
-                className="btn-dark mt-5 inline-flex w-full items-center justify-center gap-2 py-2.5 text-xs"
-              >
-                <UserPlus className="h-3.5 w-3.5" /> Open Register Patient Form
-              </button>
-            </div>
-          ) : (
-            <div className="grid w-full gap-5 sm:grid-cols-2">
-              <MiniRegister />
-              <div className="hidden items-center sm:flex"><MiniRegister idle /></div>
-            </div>
-          )}
+        <div className="grid-canvas relative grid min-h-[520px] gap-5 p-5 sm:grid-cols-2 sm:p-8">
+          <MiniRegister />
+          <div className="hidden items-center sm:flex"><MiniRegister idle /></div>
         </div>
       </div>
     </div>
