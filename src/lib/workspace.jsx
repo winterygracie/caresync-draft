@@ -17,6 +17,10 @@ export const todayISO = () => new Date().toISOString().slice(0, 10)
 export const isExpired = (batch, today = todayISO()) => batch.expiration_date <= today
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2))
 
+// [ADDED] Administrative Clerk accounts are not allowed to open Patients & Records
+const isClerk = (u) => /clerk/i.test(`${u?.role || ''} ${u?.title || ''}`)
+const PATIENT_PERM = /^(patients?|visits?)[._:\-]/i
+
 // [ADDED] Helper to load saved data from localStorage and restore any custom supplies
 const loadState = () => {
   try {
@@ -128,7 +132,15 @@ export function WorkspaceProvider({ children }) {
     return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down) }
   }, [])
 
-  const can = useCallback((perm) => !!user && (PERMISSIONS[user.role] || []).includes(perm), [user])
+  // [UPDATED] Administrative Clerk is denied every patient/visit permission
+  const can = useCallback((perm) => {
+    if (!user) return false
+    if (isClerk(user) && PATIENT_PERM.test(perm)) return false
+    return (PERMISSIONS[user.role] || []).includes(perm)
+  }, [user])
+
+  // [ADDED] Use this in the sidebar and the /patients route to block access
+  const canAccessPatients = !!user && !isClerk(user)
 
   const signIn = useCallback((email) => {
     const found = USERS.find((u) => u.email.toLowerCase() === email.trim().toLowerCase())
@@ -295,7 +307,7 @@ export function WorkspaceProvider({ children }) {
   }, [pendingCount, runSync])
 
   const value = {
-    user, signIn, signOut, can,
+    user, signIn, signOut, can, canAccessPatients, // [UPDATED] exposes canAccessPatients
     patients, visits, batches, dispensing, adjustments, supplies, users: USERS,
     registerPatient, addVisit, receiveBatch, dispense, adjustStock,
     isOnline, simulateOffline, setSimulateOffline, syncing, pendingCount, lastSync, syncLog, runSync,
