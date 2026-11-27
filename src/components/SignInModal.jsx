@@ -3,27 +3,27 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowUpRight, ClipboardList, Database, Lock, Stethoscope, Users, HeartPulse } from 'lucide-react'
 import Modal from './Modal.jsx'
 import { PulseMark } from './Logo.jsx'
-import { DEMO_PASSWORD, ROLES, USERS } from '../data/fixtures.js'
+import { DEMO_PASSWORD, USERS } from '../data/fixtures.js'
 import { useWorkspace } from '../lib/workspace.jsx'
+
+const ROLES = {
+  DOCTOR: 'Doctor',
+  REGISTRATION: 'Barangay Health Worker',
+  CLINICAL: 'Nurse',
+  CLERK: 'Inventory Clerk',
+  CONTROLLER: 'Sync Controller',
+}
 
 const ROLE_ICON = {
   [ROLES.DOCTOR]: Stethoscope,
-  [ROLES.REGISTRATION]: Users,      // Matches 'Barangay Health Worker'
-  [ROLES.CLINICAL]: HeartPulse,     // Matches 'Nurse'
-  [ROLES.CLERK]: ClipboardList,     // Matches 'Inventory Clerk'
+  [ROLES.REGISTRATION]: Users,
+  [ROLES.CLINICAL]: HeartPulse,
+  [ROLES.CLERK]: ClipboardList,
   [ROLES.CONTROLLER]: Database,
 }
 
-export const homeFor = (role) => {
-  if (role === ROLES.CLERK) return '/app/inventory'
-  if (role === ROLES.DOCTOR) return '/app'
-  return '/app/patients'
-}
-
-export default function SignInModal({ open, onClose, mode = 'signin' }) {
-  const { signIn } = useWorkspace()
-  const navigate = useNavigate()
-  const [email, setEmail] = useState('')
+export const homeFor = (role) =>
+  role === ROLES.CONTROLLER ? '/app' : '/app/patients'
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
 
