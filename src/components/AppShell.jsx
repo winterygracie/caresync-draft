@@ -46,7 +46,7 @@ export default function AppShell() {
 
   if (!user) return null
 
-  const isBhw = user.role === ROLES?.REGISTRATION || user.role === 'Barangay Health Worker'
+  const isBhw = user.role === ROLES?.BARANGAY_HEALTH_WORKER || user.role === 'Barangay Health Worker'
   const clerk = isClerk(user) || user.role === ROLES?.CLERK
   const controller = isController(user) || user.role === ROLES?.CONTROLLER
 
