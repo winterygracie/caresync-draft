@@ -72,7 +72,7 @@ export default function Inventory() {
           b.supply_id?.toLowerCase().includes(t)
       )
       .sort((a, b) => a.expiration_date.localeCompare(b.expiration_date))
-  }, [batches, q, today])
+  }, [batches, supplies, q, today])
 
   const expired = rows.filter((r) => r.expired)
   const totalByItem = (id) =>
@@ -226,7 +226,9 @@ export default function Inventory() {
                         {r.supply?.item_name}
                       </p>
                       <p className="text-[11px] text-slate-400">
-                        {r.supply_id} · {r.supply?.category}
+                        {r.supply_id} · {r.medicine_type || r.supply?.category}
+                        {(r.dosage_form || r.supply?.dosage_form) &&
+                          ` · ${r.dosage_form || r.supply?.dosage_form}`}
                       </p>
                     </td>
                     <td className="px-3 font-mono text-xs">
@@ -318,11 +320,9 @@ export default function Inventory() {
           icon={Pill}
           items={dispensing.slice(0, 6).map((d) => ({
             id: d.transaction_id,
-            // [UPDATED] Show dosage form alongside item name and quantity
             main: `${supplyById(d.supply_id)?.item_name} × ${d.quantity_dispensed}${
               d.dosage_form ? ` (${d.dosage_form})` : ''
             }`,
-            // [UPDATED] Show therapeutic type in dispensing history details
             sub: `${[d.therapeutic_type, batches.find((b) => b.batch_id === d.batch_id)?.batch_number]
               .filter(Boolean)
               .join(' · ')} · ${d.patient_id || 'walk-in'} · ${userName(d.dispensed_by)}`,
@@ -393,8 +393,12 @@ function AuditList({ title, icon: Icon, items }) {
 
 function ReceiveDialog({ onClose }) {
   const { supplies, receiveBatch } = useWorkspace()
+  // [UPDATED] User enters exact medicine name and chooses medicine type and dosage type
   const [f, setF] = useState({
-    supply_id: supplies[0].supply_id,
+    supply_id: '',
+    item_name: '',
+    medicine_type: THERAPEUTIC_TYPES[0],
+    dosage_form: DOSAGE_FORM_TYPES[0],
     batch_number: '',
     expiration_date: '',
     quantity: '',
@@ -404,8 +408,22 @@ function ReceiveDialog({ onClose }) {
     setF({ ...f, [k]: e.target.value })
     setErr('')
   }
+  const handleNameChange = (e) => {
+    const val = e.target.value
+    const found = supplies.find(
+      (s) => s.item_name.toLowerCase() === val.trim().toLowerCase()
+    )
+    setF({
+      ...f,
+      item_name: val,
+      supply_id: found ? found.supply_id : '',
+    })
+    setErr('')
+  }
   const submit = (e) => {
     e.preventDefault()
+    if (!f.item_name.trim())
+      return setErr('Enter the exact name of the medicine.')
     if (f.expiration_date <= todayISO())
       return setErr(
         'This batch is already expired and cannot be received into usable stock.'
@@ -420,19 +438,49 @@ function ReceiveDialog({ onClose }) {
       <form onSubmit={submit}>
         <h2 className="text-xl font-extrabold">Receive supplies</h2>
         <p className="text-sm text-slate-500">
-          Log an incoming delivery as a new batch.
+          Enter the exact medicine name, choose its medicine type and dosage type, and log the batch.
         </p>
         <div className="mt-5 space-y-3">
           <div>
-            <label className="label">Supply item *</label>
+            <label className="label">Medicine name *</label>
+            <input
+              required
+              list="medicine-name-suggestions"
+              className="input"
+              placeholder="e.g. Paracetamol 500mg"
+              value={f.item_name}
+              onChange={handleNameChange}
+            />
+            <datalist id="medicine-name-suggestions">
+              {supplies.map((s) => (
+                <option key={s.supply_id} value={s.item_name} />
+              ))}
+            </datalist>
+          </div>
+          <div>
+            <label className="label">Medicine type *</label>
             <select
               className="input"
-              value={f.supply_id}
-              onChange={set('supply_id')}
+              value={f.medicine_type}
+              onChange={set('medicine_type')}
             >
-              {supplies.map((s) => (
-                <option key={s.supply_id} value={s.supply_id}>
-                  {s.item_name} ({s.unit})
+              {THERAPEUTIC_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label">Dosage type *</label>
+            <select
+              className="input"
+              value={f.dosage_form}
+              onChange={set('dosage_form')}
+            >
+              {DOSAGE_FORM_TYPES.map((d) => (
+                <option key={d} value={d}>
+                  {d}
                 </option>
               ))}
             </select>
