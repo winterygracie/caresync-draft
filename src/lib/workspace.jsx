@@ -23,7 +23,7 @@ const loadState = () => {
 }
 
 // ---- duplicate detection --------------------------------------------------
-const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z]/g, '')
+const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '')
 function distance(a, b) {
   const dp = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)])
   for (let j = 1; j <= b.length; j++) dp[0][j] = j
@@ -88,7 +88,14 @@ export function WorkspaceProvider({ children }) {
   const [syncLog, setSyncLog] = useState([
     { id: uuid(), at: new Date(Date.now() - 1000 * 60 * 42), kind: 'info', message: 'Scheduled sync complete · 0 records pushed' },
   ])
-  const seq = useRef({ patient: PATIENTS.length, visit: VISITS.length, dispense: DISPENSING.length, adjust: STOCK_ADJUSTMENTS.length, offline: 0 })
+  // [UPDATED] Initialize ID counters from saved record counts so reloads never generate duplicate IDs
+  const seq = useRef({
+    patient: (saved.patients || PATIENTS).length,
+    visit: (saved.visits || VISITS).length,
+    dispense: (saved.dispensing || DISPENSING).length,
+    adjust: (saved.adjustments || STOCK_ADJUSTMENTS).length,
+    offline: 0,
+  })
 
   const isOnline = online && !simulateOffline
 
