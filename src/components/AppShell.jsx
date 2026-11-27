@@ -46,14 +46,16 @@ export default function AppShell() {
 
   if (!user) return null
 
-  const isBhw = user.role === ROLES.REGISTRATION
-  const isClerk = user.role === ROLES.CLERK
-  const isController = user.role === ROLES.CONTROLLER
+  const isBhw = user.role === ROLES.REGISTRATION || user.role === 'Barangay Health Worker'
+  const isClerk = user.role === ROLES.CLERK || user.role === 'Administrative Clerk'
+  const isController = user.role === ROLES.CONTROLLER || user.role === 'Data Controller'
 
-  // Hard URL redirect so Clerk only accesses /app/inventory and Data Controller only accesses /app/sync
+  // Administrative Clerk: ONLY /app/inventory
   if (isClerk && !pathname.startsWith('/app/inventory')) {
     return <Navigate to="/app/inventory" replace />
   }
+
+  // Data Controller: ONLY /app/sync (blocks Dashboard, Patients & Records, and Inventory)
   if (isController && !pathname.startsWith('/app/sync')) {
     return <Navigate to="/app/sync" replace />
   }
@@ -170,7 +172,7 @@ export default function AppShell() {
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
             <SyncBadge
               onClick={() =>
-                !isBhw && !isClerk && can('sync.monitor')
+                !isBhw && !isClerk && (isController || can('sync.monitor'))
                   ? navigate('/app/sync')
                   : setHelpOpen(!helpOpen)
               }
