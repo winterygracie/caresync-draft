@@ -6,19 +6,21 @@ import { PulseMark } from './Logo.jsx'
 import { DEMO_PASSWORD, ROLES, USERS } from '../data/fixtures.js'
 import { useWorkspace } from '../lib/workspace.jsx'
 
-const ROLE_ICON = {
+export const ROLES = {
+  DOCTOR: 'Doctor',
+  REGISTRATION: 'Barangay Health Worker',
+  CLINICAL: 'Nurse',                      
+  CLERK: 'Inventory Clerk',
+  CONTROLLER: 'Sync Controller',
+}
+  export const homeFor = (role) =>
+  const ROLE_ICON = {
   [ROLES.DOCTOR]: Stethoscope,
-  [ROLES.REGISTRATION]: Users,
-  [ROLES.CLINICAL]: HeartPulse,
+  [ROLES.BHW]: Users,
+  [ROLES.NURSE]: HeartPulse,
   [ROLES.CLERK]: ClipboardList,
   [ROLES.CONTROLLER]: Database,
 }
-  export const homeFor = (role) =>
-  role === ROLES.CLERK
-    ? '/app/inventory'
-    : role === ROLES.CONTROLLER
-      ? '/app/sync'
-      : role === ROLES.REGISTRATION
         ? '/app'
         : '/app/patients'
 
