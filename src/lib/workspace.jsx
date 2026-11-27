@@ -3,12 +3,6 @@ import {
   BATCHES, DEFAULT_ADDRESS, DISPENSING, PATIENTS, PERMISSIONS, STOCK_ADJUSTMENTS, SUPPLIES, USERS, VISITS,
 } from '../data/fixtures.js'
 
-// ---------------------------------------------------------------------------
-// Workspace state for the product surface. All data lives in memory and is
-// seeded from fixtures.js; a later milestone swaps these actions for the
-// Express API + IndexedDB queue without changing the screens.
-// ---------------------------------------------------------------------------
-
 const WorkspaceContext = createContext(null)
 const SESSION_KEY = 'caresync.session'
 const STATE_KEY = 'caresync.state'
@@ -25,7 +19,6 @@ const PATIENT_PERM = /^(patients?|visits?)[._:\-]/i
 const INVENTORY_PERM = /^(inventory|supplies|batches|dispens)/i
 const SYNC_PERM = /^sync[._:\-]/i
 
-// Helper to load saved data from localStorage and restore any custom supplies
 const loadState = () => {
   try {
     const parsed = JSON.parse(localStorage.getItem(STATE_KEY)) || {}
@@ -42,7 +35,6 @@ const loadState = () => {
   }
 }
 
-// ---- duplicate detection --------------------------------------------------
 const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '')
 function distance(a, b) {
   const dp = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)])
@@ -71,7 +63,6 @@ export function findSimilarPatients(patients, { first_name, last_name, dob }) {
     .sort((a, b) => b.score - a.score)
 }
 
-// ---- FEFO -----------------------------------------------------------------
 export function planFefo(batches, supply_id, quantity, today = todayISO()) {
   const eligible = batches
     .filter((b) => b.supply_id === supply_id && b.quantity_on_hand > 0 && !isExpired(b, today))
@@ -89,7 +80,6 @@ export function planFefo(batches, supply_id, quantity, today = todayISO()) {
   return { ok: true, available, allocations }
 }
 
-// ---------------------------------------------------------------------------
 export function WorkspaceProvider({ children }) {
   const saved = useMemo(() => loadState(), [])
   const [user, setUser] = useState(() => {
@@ -133,9 +123,8 @@ export function WorkspaceProvider({ children }) {
     return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down) }
   }, [])
 
-  // Strict role-based permission enforcement:
-  // - Data Controller: ONLY sync permissions (blocks patients & inventory; Dashboard is open)
-  // - All other roles: NO sync permissions
+  // Data Controller: ONLY sync permissions (blocks patients & inventory; Dashboard is open)
+  // All other roles: NO sync permissions
   const can = useCallback((perm) => {
     if (!user) return false
     if (isController(user)) {
@@ -168,7 +157,6 @@ export function WorkspaceProvider({ children }) {
   const log = (kind, message) => setSyncLog((l) => [{ id: uuid(), at: new Date(), kind, message }, ...l].slice(0, 40))
   const status = () => (isOnline ? 'synced' : 'pending')
 
-  // ---- patients & visits ----
   const registerPatient = (data) => {
     const temp = !isOnline
     let patient_id
@@ -198,7 +186,6 @@ export function WorkspaceProvider({ children }) {
     return visit
   }
 
-  // ---- inventory ----
   const receiveBatch = ({ supply_id, item_name, medicine_type, dosage_form, unit, batch_number, expiration_date, quantity }) => {
     const trimmedName = (item_name || '').trim()
     const matchedSupply =
@@ -271,7 +258,6 @@ export function WorkspaceProvider({ children }) {
     return row
   }
 
-  // ---- simulated sync engine ----
   const pendingCount = useMemo(
     () => [patients, visits, dispensing, batches].reduce((n, list) => n + list.filter((r) => r.sync_status === 'pending').length, 0),
     [patients, visits, dispensing, batches],
