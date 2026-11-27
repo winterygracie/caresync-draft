@@ -6,9 +6,12 @@ import { PulseMark } from './Logo.jsx'
 import { DEMO_PASSWORD, ROLES, USERS } from '../data/fixtures.js'
 import { useWorkspace } from '../lib/workspace.jsx'
 
+// Role display labels:
+// - Registration Staff -> Barangay Health Worker (ROLES.BARANGAYHEALTHWORKER)
+// - Clinical Staff -> Nurse (ROLES.NURSE)
 const ROLE_ICON = {
   [ROLES.DOCTOR]: Stethoscope,
-  [ROLES.BARANGGAYHEALTWORKER]: Users,
+  [ROLES.BARANGAYHEALTHWORKER]: Users,
   [ROLES.NURSE]: HeartPulse,
   [ROLES.CLERK]: ClipboardList,
   [ROLES.CONTROLLER]: Database,
@@ -17,7 +20,7 @@ const ROLE_ICON = {
 // Allowed route prefixes per role (Sync Center is EXCLUSIVELY for Data Controller)
 export const ALLOWED_ROUTES = {
   [ROLES.DOCTOR]: ['/app', '/app/patients', '/app/inventory'],
-  [ROLES.BARANGGAYHEALTHWORKER]: ['/app', '/app/patients'],
+  [ROLES.BARANGAYHEALTHWORKER]: ['/app', '/app/patients'],
   [ROLES.NURSE]: ['/app', '/app/patients', '/app/inventory'],
   [ROLES.CLERK]: ['/app/inventory'],
   [ROLES.CONTROLLER]: ['/app', '/app/sync'], // Dashboard & Sync Center only
