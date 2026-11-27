@@ -46,9 +46,11 @@ export default function Inventory() {
 
   const expired = rows.filter((r) => r.expired)
   const totalByItem = (id) => batches.filter((b) => b.supply_id === id && !isExpired(b, today)).reduce((s, b) => s + b.quantity_on_hand, 0)
-  const lowItems = supplies.filter((s) => totalByItem(s.supply_id) <= s.reorder_level)
+  // [UPDATED] Check low stock using LOW_STOCK_THRESHOLD (<= 10) instead of s.reorder_level
+  const isLowStock = (id) => totalByItem(id) <= LOW_STOCK_THRESHOLD
+  const lowItems = supplies.filter((s) => isLowStock(s.supply_id))
   const units = batches.filter((b) => !isExpired(b, today)).reduce((s, b) => s + b.quantity_on_hand, 0)
-  // FEFO "next to dispense" batch per supply
+  
   const nextBatch = useMemo(() => {
     const m = new Map()
     for (const r of rows) if (!r.expired && r.quantity_on_hand > 0 && !m.has(r.supply_id)) m.set(r.supply_id, r.batch_id)
@@ -58,7 +60,7 @@ export default function Inventory() {
   const stats = [
     { n: rows.filter((r) => !r.expired).length, label: 'Active batches', icon: Package, tone: 'bg-fuchsia-100', ic: 'text-emerald-600' },
     //Ensure 10 for low-stock threshold
-    { n: lowItems.length, label: 'Items at reorder level' (< 10), icon: TriangleAlert, tone: 'bg-sky-100', ic: 'text-amber-600' },
+    { n: lowItems.length, label: 'Items at reorder level (≤ 10)', icon: TriangleAlert, tone: 'bg-sky-100', ic: 'text-amber-600' },
     { n: expired.length, label: 'Expired batches (blocked)', icon: Clock, tone: 'bg-rose-100', ic: 'text-rose-600' },
     { n: units, label: 'Usable units in stock', icon: CircleCheck, tone: 'bg-indigo-100', ic: 'text-indigo-600' },
   ]
