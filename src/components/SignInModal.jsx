@@ -30,8 +30,12 @@ const ROLE_ICON = {
   [ROLES.CONTROLLER]: Database,
 }
 
-export const homeFor = (role) =>
-  role === ROLES.CONTROLLER ? '/app' : '/app/patients'
+export const homeFor = (role) => {
+  if (role === ROLES.CLERK) return '/app/inventory'
+  if (role === ROLES.CONTROLLER) return '/app/sync'
+  if (role === ROLES.DOCTOR) return '/app'
+  return '/app/patients'
+}
 
 export default function SignInModal({ open, onClose, mode = 'signin' }) {
   const navigate = useNavigate()
@@ -127,4 +131,41 @@ export default function SignInModal({ open, onClose, mode = 'signin' }) {
 
           <p className="mt-3 text-[11px] text-slate-400">
             Demo password for every account:{' '}
-            <span className="font-mono font-
+            <span className="font-mono font-semibold text-slate-600">
+              {DEMO_PASSWORD}
+            </span>
+          </p>
+        </form>
+
+        <div className="rounded-xl bg-gradient-to-br from-indigo-50 via-violet-50 to-sky-50 p-4">
+          <p className="tracked text-[10px] font-bold uppercase text-slate-500">
+            One-click demo login
+          </p>
+          <div className="mt-3 space-y-2">
+            {USERS.map((u) => {
+              const Icon = ROLE_ICON[u.role] || ClipboardList
+              return (
+                <button
+                  key={u.id}
+                  onClick={() => quick(u)}
+                  className="group flex w-full items-center gap-3 rounded-xl bg-white p-3 text-left shadow-sm ring-1 ring-slate-200/70 transition hover:-translate-y-0.5 hover:shadow-md hover:ring-periwinkle/40"
+                >
+                  <span className="grid h-9 w-9 place-items-center rounded-lg bg-amber-50 text-amber-500">
+                    <Icon className="h-4.5 w-4.5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-bold">{u.role}</span>
+                    <span className="block truncate text-[11px] text-slate-500">
+                      {u.full_name} · {u.blurb}
+                    </span>
+                  </span>
+                  <ArrowUpRight className="h-4 w-4 text-slate-400 transition group-hover:text-periwinkle" />
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    </Modal>
+  )
+}
