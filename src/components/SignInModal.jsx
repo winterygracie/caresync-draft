@@ -13,7 +13,14 @@ const ROLE_ICON = {
   [ROLES.CLERK]: ClipboardList,
   [ROLES.CONTROLLER]: Database,
 }
-export const homeFor = (role) => (role === ROLES.CLERK ? '/app/inventory' : role === ROLES.CONTROLLER ? '/app/sync' : '/app/patients')
+  export const homeFor = (role) =>
+  role === ROLES.CLERK
+    ? '/app/inventory'
+    : role === ROLES.CONTROLLER
+      ? '/app/sync'
+      : role === ROLES.REGISTRATION
+        ? '/app'
+        : '/app/patients'
 
 export default function SignInModal({ open, onClose, mode = 'signin' }) {
   const { signIn } = useWorkspace()
