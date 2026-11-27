@@ -1,9 +1,13 @@
 export function PulseMark({ className = 'h-10 w-10' }) {
   return (
-    <span className={`inline-grid place-items-center rounded-xl bg-[#14123a] shadow-[inset_0_0_0_1px_rgba(255,255,255,.08)] ${className}`}>
-      <svg viewBox="0 0 48 48" className="h-[70%] w-[70%]" aria-hidden="true">
-        <path d="M3 26h9l3-8 5 15 5-22 4 15 3-6h13" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
+    <span
+      className={`inline-grid place-items-center overflow-hidden rounded-xl bg-[#14123a] shadow-[inset_0_0_0_1px_rgba(255,255,255,.08)] ${className}`}
+    >
+      <img
+        src="/acslogo3.svg"
+        alt="Ampayon CareSync logo"
+        className="h-full w-full object-contain"
+      />
     </span>
   )
 }
