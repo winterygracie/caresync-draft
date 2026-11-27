@@ -1,17 +1,22 @@
 import { useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { ArrowUpRight, ClipboardList, Database, Lock, Stethoscope, Users, HeartPulse } from 'lucide-react'
+import {
+  ArrowUpRight,
+  ClipboardList,
+  Database,
+  HeartPulse,
+  Lock,
+  Stethoscope,
+  Users,
+} from 'lucide-react'
 import Modal from './Modal.jsx'
 import { PulseMark } from './Logo.jsx'
 import { DEMO_PASSWORD, ROLES, USERS } from '../data/fixtures.js'
 import { useWorkspace } from '../lib/workspace.jsx'
 
-// Role display labels:
-// - Registration Staff -> Barangay Health Worker (ROLES.BARANGAYHEALTHWORKER)
-// - Clinical Staff -> Nurse (ROLES.NURSE)
 const ROLE_ICON = {
   [ROLES.DOCTOR]: Stethoscope,
-  [ROLES.BARANGAYHEALTHWORKER]: Users,
+  [ROLES.BARANGAY_HEALTH_WORKER]: Users,
   [ROLES.NURSE]: HeartPulse,
   [ROLES.CLERK]: ClipboardList,
   [ROLES.CONTROLLER]: Database,
@@ -20,10 +25,10 @@ const ROLE_ICON = {
 // Allowed route prefixes per role (Sync Center is EXCLUSIVELY for Data Controller)
 export const ALLOWED_ROUTES = {
   [ROLES.DOCTOR]: ['/app', '/app/patients', '/app/inventory'],
-  [ROLES.BARANGAYHEALTHWORKER]: ['/app', '/app/patients'],
+  [ROLES.BARANGAY_HEALTH_WORKER]: ['/app', '/app/patients'],
   [ROLES.NURSE]: ['/app', '/app/patients', '/app/inventory'],
   [ROLES.CLERK]: ['/app/inventory'],
-  [ROLES.CONTROLLER]: ['/app', '/app/sync'], // Dashboard & Sync Center only
+  [ROLES.CONTROLLER]: ['/app', '/app/sync'],
 }
 
 export const homeFor = (role) => {
@@ -50,6 +55,11 @@ export function RoleGuard({ children }) {
   // Sync Center: EXCLUSIVELY accessible by Data Controller
   if (user.role !== ROLES.CONTROLLER && pathname.startsWith('/app/sync')) {
     return <Navigate to={homeFor(user.role)} replace />
+  }
+
+  // Barangay Health Worker: Dashboard & Patients & Records only
+  if (user.role === ROLES.BARANGAY_HEALTH_WORKER && pathname.startsWith('/app/inventory')) {
+    return <Navigate to="/app/patients" replace />
   }
 
   // Inventory Clerk: ONLY /app/inventory
@@ -125,7 +135,7 @@ export default function SignInModal({ open, onClose, mode = 'signin' }) {
             <Lock className="h-4 w-4" /> Sign In
           </button>
           <p className="mt-3 text-[11px] text-slate-400">
-            Demo password for every account:<span className="font-mono font-semibold text-slate-600">{DEMO_PASSWORD}</span>
+            Demo password for every account: <span className="font-mono font-semibold text-slate-600">{DEMO_PASSWORD}</span>
           </p>
         </form>
 
