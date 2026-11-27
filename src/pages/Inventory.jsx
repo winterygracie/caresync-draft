@@ -5,6 +5,7 @@ import {
   Clock,
   History,
   Package,
+  PackagePlus,
   Pill,
   Scale,
   Search,
@@ -21,10 +22,10 @@ import {
   useWorkspace,
 } from '../lib/workspace.jsx'
 
-// Low-stock threshold set to 10 units
+// [ADDED] Low-stock threshold set to 10 units
 const LOW_STOCK_THRESHOLD = 10
 
-// Therapeutic medicine categories dropdown options
+// [ADDED] Therapeutic medicine categories dropdown options
 const THERAPEUTIC_TYPES = [
   'Antimicrobials (Antibiotics & Antivirals)',
   'Cardiovascular & Antihypertensive Medicines',
@@ -35,7 +36,7 @@ const THERAPEUTIC_TYPES = [
   'Dermatological, Ophthalmic, Vestibular, Hemostatic, Immunosuppressant & Local Anesthetic Medicines',
 ]
 
-// Dosage form types dropdown options
+// [ADDED] Dosage form types dropdown options
 const DOSAGE_FORM_TYPES = [
   'Tablets (Standard, Film-Coated, Chewable, Modified Release)',
   'Capsules',
@@ -79,7 +80,7 @@ export default function Inventory() {
       .filter((b) => b.supply_id === id && !isExpired(b, today))
       .reduce((s, b) => s + b.quantity_on_hand, 0)
 
-  // Use LOW_STOCK_THRESHOLD (10) instead of s.reorder_level
+  // [UPDATED] Use LOW_STOCK_THRESHOLD (10) instead of s.reorder_level
   const isLowStock = (id) => totalByItem(id) <= LOW_STOCK_THRESHOLD
   const lowItems = supplies.filter((s) => isLowStock(s.supply_id))
 
@@ -107,6 +108,7 @@ export default function Inventory() {
       ic: 'text-emerald-600',
     },
     {
+      // [UPDATED] Shows 10-unit low stock threshold
       n: lowItems.length,
       label: 'Items at reorder level (≤ 10)',
       icon: TriangleAlert,
@@ -160,15 +162,16 @@ export default function Inventory() {
             placeholder="Search medicine or batch…"
           />
         </label>
-        {can('inventory.dispense') && (
+        {/* [REMOVED] "Dispense to patient" button beside "Receive supplies" */}
+        {can('inventory.receive') && (
           <button
-            onClick={() => setDialog({ type: 'dispense' })}
-            className="btn-ghost ml-auto rounded-xl py-2.5"
+            onClick={() => setDialog({ type: 'receive' })}
+            className="ml-auto inline-flex items-center gap-2 rounded-xl bg-indigo-deep px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-indigo-900/20 hover:brightness-110"
           >
-            <Pill className="h-4 w-4" /> Dispense to patient
+            <PackagePlus className="h-4 w-4" /> Receive supplies
           </button>
         )}
-        {!can('inventory.dispense') && (
+        {!can('inventory.receive') && !can('inventory.dispense') && (
           <span className="ml-auto rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-500">
             Read-only for your role
           </span>
@@ -179,6 +182,7 @@ export default function Inventory() {
         <div className="flex items-end justify-between px-6 pt-5">
           <div>
             <h2 className="text-lg font-extrabold">Medicine &amp; supply stock</h2>
+            {/* [UPDATED] Added low-stock threshold note */}
             <p className="text-xs text-slate-500">
               FEFO: batches with the earliest expiry appear first · Low stock threshold:{' '}
               {LOW_STOCK_THRESHOLD} units
@@ -202,6 +206,7 @@ export default function Inventory() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {rows.map((r) => {
+                // [UPDATED] Use isLowStock(r.supply_id) (<= 10)
                 const low = !r.expired && isLowStock(r.supply_id)
                 const isNext = nextBatch.get(r.supply_id) === r.batch_id
                 return (
@@ -332,6 +337,9 @@ export default function Inventory() {
         />
       </div>
 
+      {dialog?.type === 'receive' && (
+        <ReceiveDialog onClose={() => setDialog(null)} />
+      )}
       {dialog?.type === 'dispense' && (
         <DispenseDialog
           initialSupply={dialog.supply_id}
@@ -376,9 +384,157 @@ function AuditList({ title, icon: Icon, items }) {
   )
 }
 
+function ReceiveDialog({ onClose }) {
+  const { supplies, receiveBatch } = useWorkspace()
+  // [UPDATED] User enters exact medicine name, medicine type, dosage type, and dosages in batch
+  const [f, setF] = useState({
+    supply_id: '',
+    item_name: '',
+    medicine_type: THERAPEUTIC_TYPES[0],
+    dosage_form: DOSAGE_FORM_TYPES[0],
+    dosages_in_batch: '',
+    batch_number: '',
+    expiration_date: '',
+    quantity: '',
+  })
+  const [err, setErr] = useState('')
+  const set = (k) => (e) => {
+    setF({ ...f, [k]: e.target.value })
+    setErr('')
+  }
+  const handleNameChange = (e) => {
+    const val = e.target.value
+    const found = supplies.find(
+      (s) => s.item_name.toLowerCase() === val.trim().toLowerCase()
+    )
+    setF({
+      ...f,
+      item_name: val,
+      supply_id: found ? found.supply_id : '',
+    })
+    setErr('')
+  }
+  const submit = (e) => {
+    e.preventDefault()
+    const totalDosages = Number(f.dosages_in_batch || f.quantity)
+    if (!f.item_name.trim())
+      return setErr('Enter the exact name of the medicine.')
+    if (f.expiration_date <= todayISO())
+      return setErr(
+        'This batch is already expired and cannot be received into usable stock.'
+      )
+    if (!(totalDosages > 0))
+      return setErr('Enter how many dosages are in this batch (greater than zero).')
+    receiveBatch({
+      ...f,
+      dosages_in_batch: totalDosages,
+      quantity: totalDosages,
+    })
+    onClose()
+  }
+  return (
+    <Modal open onClose={onClose} label="Receive supplies">
+      <form onSubmit={submit}>
+        <h2 className="text-xl font-extrabold">Receive supplies</h2>
+        <p className="text-sm text-slate-500">
+          Enter the exact medicine name, choose its medicine type and dosage type, and specify how many dosages are in the batch.
+        </p>
+        <div className="mt-5 space-y-3">
+          <div>
+            <label className="label">Medicine name *</label>
+            <input
+              required
+              list="medicine-name-suggestions"
+              className="input"
+              placeholder="e.g. Paracetamol 500mg"
+              value={f.item_name}
+              onChange={handleNameChange}
+            />
+            <datalist id="medicine-name-suggestions">
+              {supplies.map((s) => (
+                <option key={s.supply_id} value={s.item_name} />
+              ))}
+            </datalist>
+          </div>
+          <div>
+            <label className="label">Medicine type *</label>
+            <select
+              className="input"
+              value={f.medicine_type}
+              onChange={set('medicine_type')}
+            >
+              {THERAPEUTIC_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label">Dosage type *</label>
+            <select
+              className="input"
+              value={f.dosage_form}
+              onChange={set('dosage_form')}
+            >
+              {DOSAGE_FORM_TYPES.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div>
+              <label className="label">Batch number *</label>
+              <input
+                required
+                className="input"
+                placeholder="PCM-2611-C"
+                value={f.batch_number}
+                onChange={set('batch_number')}
+              />
+            </div>
+            <div>
+              <label className="label">Expiration date *</label>
+              <input
+                required
+                type="date"
+                className="input"
+                value={f.expiration_date}
+                onChange={set('expiration_date')}
+              />
+            </div>
+            <div>
+              <label className="label">Dosages in batch *</label>
+              <input
+                required
+                type="number"
+                min="1"
+                className="input"
+                placeholder="e.g. 100"
+                value={f.dosages_in_batch}
+                onChange={set('dosages_in_batch')}
+              />
+            </div>
+          </div>
+        </div>
+        {err && <p className="mt-3 text-xs font-semibold text-rose-600">{err}</p>}
+        <div className="mt-5 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="btn-ghost">
+            Cancel
+          </button>
+          <button className="btn-dark py-2">Receive batch</button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
 function DispenseDialog({ initialSupply, onClose }) {
   const { supplies, batches, patients, visits, dispense } = useWorkspace()
   const [supply_id, setSupply] = useState(initialSupply || 'MED-01')
+  // [ADDED] State for Therapeutic Type and Dosage Form Type
   const [therapeutic_type, setTherapeuticType] = useState(THERAPEUTIC_TYPES[0])
   const [dosage_form, setDosageForm] = useState(DOSAGE_FORM_TYPES[0])
   const [quantity, setQty] = useState(initialSupply === undefined ? 40 : 1)
@@ -403,6 +559,7 @@ function DispenseDialog({ initialSupply, onClose }) {
           <h2 className="mt-3 text-xl font-extrabold">
             Dispensed {quantity} {supply.unit}s
           </h2>
+          {/* [ADDED] Display selected therapeutic type and dosage form */}
           <p className="mt-1 text-xs text-slate-500">
             {therapeutic_type} · {dosage_form}
           </p>
@@ -444,6 +601,7 @@ function DispenseDialog({ initialSupply, onClose }) {
             ))}
           </select>
         </div>
+        {/* [ADDED] Therapeutic Type dropdown */}
         <div>
           <label className="label">Therapeutic type</label>
           <select
@@ -458,6 +616,7 @@ function DispenseDialog({ initialSupply, onClose }) {
             ))}
           </select>
         </div>
+        {/* [ADDED] Dosage Form Type dropdown paired with Dosage / Quantity */}
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <label className="label">Dosage form type</label>
@@ -547,6 +706,7 @@ function DispenseDialog({ initialSupply, onClose }) {
         <button type="button" onClick={onClose} className="btn-ghost">
           Cancel
         </button>
+        {/* [UPDATED] Include therapeutic_type and dosage_form in dispense() */}
         <button
           disabled={!plan.ok || !(Number(quantity) > 0)}
           onClick={() =>
