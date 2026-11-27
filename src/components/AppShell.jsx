@@ -9,7 +9,6 @@ import {
   Lock,
   LogOut,
   Package,
-  UserPlus,
   Users,
   Wifi,
   WifiOff,
@@ -22,7 +21,6 @@ import { initials, useWorkspace } from '../lib/workspace.jsx'
 const NAV = [
   { to: '/app', label: 'Dashboard', icon: LayoutGrid, end: true, allowBhw: true },
   { to: '/app/patients', label: 'Patients & Records', icon: Users, perm: 'patients.read', allowBhw: true },
-  { to: '/app/register', label: 'Register Patient', icon: UserPlus, perm: 'patients.register', bhwOnly: true },
   { to: '/app/inventory', label: 'Inventory', icon: Package, perm: 'inventory.read', allowBhw: false },
   { to: '/app/sync', label: 'Sync Center', icon: Database, perm: 'sync.monitor', allowBhw: false },
 ]
@@ -30,7 +28,6 @@ const NAV = [
 const TITLES = {
   '/app': 'Dashboard',
   '/app/patients': 'Patients & Records',
-  '/app/register': 'Register Patient',
   '/app/inventory': 'Inventory',
   '/app/sync': 'Sync Center',
 }
@@ -49,14 +46,7 @@ export default function AppShell() {
 
   const isBhw = user?.role === ROLES.REGISTRATION
 
-  const visibleNav = NAV.filter((n) => {
-    if (n.bhwOnly) return isBhw
-    if (isBhw && n.allowBhw === false) return true // render as locked below
-    return true
-  })
-
   const isLocked = (n) => {
-    if (n.bhwOnly) return !isBhw || (n.perm && !can(n.perm))
     if (isBhw && n.allowBhw === false) return true
     return Boolean(n.perm && !can(n.perm))
   }
@@ -71,7 +61,7 @@ export default function AppShell() {
           Workspace
         </p>
         <nav className="mt-3 space-y-1">
-          {visibleNav.map((n) => {
+          {NAV.map((n) => {
             const locked = isLocked(n)
             if (locked) {
               return (
@@ -197,24 +187,22 @@ export default function AppShell() {
         </header>
 
         <nav className="flex gap-1 overflow-x-auto border-b border-slate-200/70 bg-white/70 px-4 py-2 lg:hidden">
-          {visibleNav
-            .filter((n) => !isLocked(n))
-            .map((n) => (
-              <NavLink
-                key={n.to}
-                to={n.to}
-                end={n.end}
-                className={({ isActive }) =>
-                  `whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-bold ${
-                    isActive
-                      ? 'bg-indigo-deep text-white'
-                      : 'text-indigo-deep'
-                  }`
-                }
-              >
-                {n.label}
-              </NavLink>
-            ))}
+          {NAV.filter((n) => !isLocked(n)).map((n) => (
+            <NavLink
+              key={n.to}
+              to={n.to}
+              end={n.end}
+              className={({ isActive }) =>
+                `whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-bold ${
+                  isActive
+                    ? 'bg-indigo-deep text-white'
+                    : 'text-indigo-deep'
+                }`
+              }
+            >
+              {n.label}
+            </NavLink>
+          ))}
         </nav>
 
         {helpOpen && (
