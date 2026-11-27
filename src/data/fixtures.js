@@ -8,7 +8,7 @@
 
 export const ROLES = {
   DOCTOR: 'Doctor',
-  BARANGGAY: 'Baranggay Health Worker',
+  BARANGAY: 'Barangay Health Worker',
   NURSE: 'Nurse',
   CLERK: 'Administrative Clerk',
   CONTROLLER: 'Data Controller',
@@ -17,7 +17,7 @@ export const ROLES = {
 // What each role can do. Enforced in the UI now; mirrored by API middleware later.
 export const PERMISSIONS = {
   [ROLES.DOCTOR]: ['patients.read', 'patients.history', 'visits.clinical'],
-  [ROLES.BARANGGAY HEALTH WORKER]: ['patients.read', 'patients.register', 'visits.intake'],
+  [ROLES.BARANGAY]: ['patients.read', 'patients.register', 'visits.intake'],
   [ROLES.NURSE]: ['patients.read', 'patients.history', 'visits.vitals', 'visits.intake'],
   [ROLES.CLERK]: ['inventory.read', 'inventory.receive', 'inventory.dispense', 'inventory.adjust', 'patients.read'],
   [ROLES.CONTROLLER]: ['sync.monitor', 'patients.read', 'inventory.read'],
@@ -27,12 +27,11 @@ export const DEMO_PASSWORD = 'CareSync2026!'
 
 export const USERS = [
   { id: 1, full_name: 'Dr. Liza Montero', email: 'doctor@caresync.ph', role: ROLES.DOCTOR, blurb: 'Consultations & diagnoses' },
-  { id: 2, full_name: 'Grace Carmel', email: 'registration@caresync.ph', role: ROLES.BARANGGAY HEALTH WORKER, blurb: 'Check-in & patient IDs' },
+  { id: 2, full_name: 'Grace Carmel', email: 'registration@caresync.ph', role: ROLES.BARANGAY, blurb: 'Check-in & patient IDs' },
   { id: 3, full_name: 'Nurse Joy Abella', email: 'clinical@caresync.ph', role: ROLES.NURSE, blurb: 'Vitals & follow-up visits' },
   { id: 4, full_name: 'Remchon Cruz', email: 'clerk@caresync.ph', role: ROLES.CLERK, blurb: 'FEFO inventory & dispensing' },
   { id: 5, full_name: 'Arnel Tagupa', email: 'controller@caresync.ph', role: ROLES.CONTROLLER, blurb: 'Sync queues & audit status' },
 ]
-
 export const DEFAULT_ADDRESS = 'Ampayon, Butuan City'
 
 export const VISIT_PURPOSES = [
