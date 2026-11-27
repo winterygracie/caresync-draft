@@ -16,14 +16,19 @@ function Guard({ perm, children }) {
   const clerk = isClerk(user)
   const controller = isController(user)
 
+  // Data Controller: ONLY /app (Dashboard) and /app/sync (Sync Center)
+  if (controller && (pathname.startsWith('/app/patients') || pathname.startsWith('/app/inventory'))) {
+    return <Navigate to="/app/sync" replace />
+  }
+
+  // Sync Center: EXCLUSIVELY for Data Controller (blocks all other roles)
+  if (!controller && pathname.startsWith('/app/sync')) {
+    return <Navigate to={clerk ? '/app/inventory' : '/app'} replace />
+  }
+
   // Administrative Clerk: ONLY /app/inventory
   if (clerk && !pathname.startsWith('/app/inventory')) {
     return <Navigate to="/app/inventory" replace />
-  }
-
-  // Data Controller: ONLY /app/sync (blocks Dashboard, Patients & Records, and Inventory)
-  if (controller && !pathname.startsWith('/app/sync')) {
-    return <Navigate to="/app/sync" replace />
   }
 
   if (perm && !can(perm)) {
