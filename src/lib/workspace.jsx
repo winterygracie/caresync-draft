@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  BATCHES, DEFAULT_ADDRESS, DISPENSING, PATIENTS, PERMISSIONS, STOCK_ADJUSTMENTS, SUPPLIES, USERS, VISITS,
+  BATCHES, DEFAULT_ADDRESS, DISPENSING, PATIENTS, PERMISSIONS, ROLES, STOCK_ADJUSTMENTS, SUPPLIES, USERS, VISITS,
 } from '../data/fixtures.js'
 
 // ---------------------------------------------------------------------------
@@ -18,8 +18,10 @@ export const isExpired = (batch, today = todayISO()) => batch.expiration_date <=
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2))
 
 // Role matchers
-const isClerk = (u) => /clerk/i.test(`${u?.role || ''} ${u?.title || ''}`)
-const isController = (u) => /controller/i.test(`${u?.role || ''} ${u?.title || ''}`)
+export const isClerk = (u) =>
+  u?.role === ROLES?.CLERK || /clerk/i.test(`${u?.role || ''} ${u?.title || ''}`)
+export const isController = (u) =>
+  u?.role === ROLES?.CONTROLLER || /controller/i.test(`${u?.role || ''} ${u?.title || ''}`)
 
 const PATIENT_PERM = /^(patients?|visits?)[._:\-]/i
 const INVENTORY_PERM = /^(inventory|supplies|batches|dispens)/i
@@ -135,7 +137,7 @@ export function WorkspaceProvider({ children }) {
 
   // Strict role-based permission enforcement:
   // - Administrative Clerk: ONLY inventory permissions
-  // - Data Controller: ONLY sync permissions (blocks patients & inventory)
+  // - Data Controller: ONLY sync permissions (blocks dashboard, patients & inventory)
   const can = useCallback((perm) => {
     if (!user) return false
     if (isClerk(user)) {
@@ -149,6 +151,7 @@ export function WorkspaceProvider({ children }) {
     return (PERMISSIONS[user.role] || []).includes(perm)
   }, [user])
 
+  const canAccessDashboard = !!user && !isClerk(user) && !isController(user)
   const canAccessPatients = !!user && !isClerk(user) && !isController(user)
   const canAccessInventory = !!user && !isController(user)
   const canAccessSync = !!user && !isClerk(user)
@@ -315,7 +318,7 @@ export function WorkspaceProvider({ children }) {
   }, [pendingCount, runSync])
 
   const value = {
-    user, signIn, signOut, can, canAccessPatients, canAccessInventory, canAccessSync,
+    user, signIn, signOut, can, canAccessDashboard, canAccessPatients, canAccessInventory, canAccessSync,
     patients, visits, batches, dispensing, adjustments, supplies, users: USERS,
     registerPatient, addVisit, receiveBatch, dispense, adjustStock,
     isOnline, simulateOffline, setSimulateOffline, syncing, pendingCount, lastSync, syncLog, runSync,
