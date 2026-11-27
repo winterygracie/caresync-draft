@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  BATCHES, DEFAULT_ADDRESS, DISPENSING, PATIENTS, PERMISSIONS, ROLES, STOCK_ADJUSTMENTS, SUPPLIES, USERS, VISITS,
+  BATCHES, DEFAULT_ADDRESS, DISPENSING, PATIENTS, PERMISSIONS, STOCK_ADJUSTMENTS, SUPPLIES, USERS, VISITS,
 } from '../data/fixtures.js'
 
 // ---------------------------------------------------------------------------
@@ -18,10 +18,8 @@ export const isExpired = (batch, today = todayISO()) => batch.expiration_date <=
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2))
 
 // Role matchers
-export const isClerk = (u) =>
-  u?.role === ROLES?.CLERK || /clerk/i.test(`${u?.role || ''} ${u?.title || ''}`)
-export const isController = (u) =>
-  u?.role === ROLES?.CONTROLLER || /controller/i.test(`${u?.role || ''} ${u?.title || ''}`)
+export const isClerk = (u) => /clerk/i.test(`${u?.role || ''} ${u?.title || ''}`)
+export const isController = (u) => /controller/i.test(`${u?.role || ''} ${u?.title || ''}`)
 
 const PATIENT_PERM = /^(patients?|visits?)[._:\-]/i
 const INVENTORY_PERM = /^(inventory|supplies|batches|dispens)/i
@@ -136,25 +134,27 @@ export function WorkspaceProvider({ children }) {
   }, [])
 
   // Strict role-based permission enforcement:
-  // - Administrative Clerk: ONLY inventory permissions
-  // - Data Controller: ONLY sync permissions (blocks dashboard, patients & inventory)
+  // - Data Controller: ONLY sync permissions (blocks patients & inventory; Dashboard is open)
+  // - All other roles: NO sync permissions
   const can = useCallback((perm) => {
     if (!user) return false
+    if (isController(user)) {
+      return SYNC_PERM.test(perm)
+    }
+    if (SYNC_PERM.test(perm)) {
+      return false
+    }
     if (isClerk(user)) {
       if (!INVENTORY_PERM.test(perm)) return false
-      return (PERMISSIONS[user.role] || []).includes(perm)
-    }
-    if (isController(user)) {
-      if (!SYNC_PERM.test(perm)) return false
       return (PERMISSIONS[user.role] || []).includes(perm)
     }
     return (PERMISSIONS[user.role] || []).includes(perm)
   }, [user])
 
-  const canAccessDashboard = !!user && !isClerk(user) && !isController(user)
+  const canAccessDashboard = !!user && !isClerk(user)
   const canAccessPatients = !!user && !isClerk(user) && !isController(user)
   const canAccessInventory = !!user && !isController(user)
-  const canAccessSync = !!user && !isClerk(user)
+  const canAccessSync = !!user && isController(user)
 
   const signIn = useCallback((email) => {
     const found = USERS.find((u) => u.email.toLowerCase() === email.trim().toLowerCase())
