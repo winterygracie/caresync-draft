@@ -6,7 +6,7 @@ import { PulseMark } from './Logo.jsx'
 import { DEMO_PASSWORD, ROLES, USERS } from '../data/fixtures.js'
 import { useWorkspace } from '../lib/workspace.jsx'
 
-export const ROLES = {
+ const ROLES = {
   DOCTOR: 'Doctor',
   REGISTRATION: 'Barangay Health Worker',
   CLINICAL: 'Nurse',                      
