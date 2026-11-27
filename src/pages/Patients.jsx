@@ -30,12 +30,12 @@ export default function Patients() {
       <p className="mt-1 text-slate-500">Find patient profiles, review visit history, and document care.</p>
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
-        <label className="relative flex-1 sm:max-w-md">
-  <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <label className="relative flex flex-1 items-center sm:max-w-md">
+  <SearchIcon className="pointer-events-none absolute left-3 h-4 w-4 text-slate-400" />
   <input
-    value={q}
+    type="text"
     onChange={(e) => setQ(e.target.value)}
-    className="input w-full rounded-xl py-2.5 !pl-10"
+    className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2 text-sm text-ink outline-none transition placeholder:text-slate-400 focus:border-periwinkle focus:ring-2 focus:ring-periwinkle/20"
     placeholder="Search by patient name or ID (e.g. AMP-2026-0003)"
     autoFocus
   />
