@@ -22,6 +22,13 @@ const ROLE_ICON = {
   [ROLES.CONTROLLER]: Database,
 }
 
+const ROLE_LABELS = {
+  'Registration Staff': 'Barangay Health Worker',
+  'Clinical Staff': 'Nurse',
+}
+
+export const formatRoleLabel = (role) => ROLE_LABELS[role] || role
+
 // Allowed route prefixes per role (Sync Center is EXCLUSIVELY for Data Controller)
 export const ALLOWED_ROUTES = {
   [ROLES.DOCTOR]: ['/app', '/app/patients', '/app/inventory'],
@@ -32,9 +39,10 @@ export const ALLOWED_ROUTES = {
 }
 
 export const homeFor = (role) => {
-  if (role === ROLES.CLERK) return '/app/inventory'
-  if (role === ROLES.CONTROLLER) return '/app/sync'
-  if (role === ROLES.DOCTOR) return '/app'
+  const normalized = formatRoleLabel(role)
+  if (normalized === ROLES.CLERK) return '/app/inventory'
+  if (normalized === ROLES.CONTROLLER) return '/app/sync'
+  if (normalized === ROLES.DOCTOR) return '/app'
   return '/app/patients'
 }
 
@@ -44,26 +52,28 @@ export function RoleGuard({ children }) {
 
   if (!user) return children
 
+  const role = formatRoleLabel(user.role)
+
   // Data Controller: ONLY /app and /app/sync (blocks /app/patients and /app/inventory)
   if (
-    user.role === ROLES.CONTROLLER &&
+    role === ROLES.CONTROLLER &&
     (pathname.startsWith('/app/patients') || pathname.startsWith('/app/inventory'))
   ) {
     return <Navigate to="/app/sync" replace />
   }
 
   // Sync Center: EXCLUSIVELY accessible by Data Controller
-  if (user.role !== ROLES.CONTROLLER && pathname.startsWith('/app/sync')) {
-    return <Navigate to={homeFor(user.role)} replace />
+  if (role !== ROLES.CONTROLLER && pathname.startsWith('/app/sync')) {
+    return <Navigate to={homeFor(role)} replace />
   }
 
   // Barangay Health Worker: Dashboard & Patients & Records only
-  if (user.role === ROLES.BARANGAY_HEALTH_WORKER && pathname.startsWith('/app/inventory')) {
+  if (role === ROLES.BARANGAY_HEALTH_WORKER && pathname.startsWith('/app/inventory')) {
     return <Navigate to="/app/patients" replace />
   }
 
   // Inventory Clerk: ONLY /app/inventory
-  if (user.role === ROLES.CLERK && !pathname.startsWith('/app/inventory')) {
+  if (role === ROLES.CLERK && !pathname.startsWith('/app/inventory')) {
     return <Navigate to="/app/inventory" replace />
   }
 
@@ -78,6 +88,7 @@ export default function SignInModal({ open, onClose, mode = 'signin' }) {
   const [error, setError] = useState('')
 
   const go = (u) => {
+    if (!u) return
     onClose()
     navigate(homeFor(u.role))
   }
@@ -131,7 +142,7 @@ export default function SignInModal({ open, onClose, mode = 'signin' }) {
             required
           />
           {error && <p className="mt-2 text-xs font-semibold text-rose-600">{error}</p>}
-          <button className="btn-dark mt-5 w-full">
+          <button type="submit" className="btn-dark mt-5 w-full">
             <Lock className="h-4 w-4" /> Sign In
           </button>
           <p className="mt-3 text-[11px] text-slate-400">
@@ -143,10 +154,12 @@ export default function SignInModal({ open, onClose, mode = 'signin' }) {
           <p className="tracked text-[10px] font-bold uppercase text-slate-500">One-click demo login</p>
           <div className="mt-3 space-y-2">
             {USERS.map((u) => {
-              const Icon = ROLE_ICON[u.role] || ClipboardList
+              const displayRole = formatRoleLabel(u.role)
+              const Icon = ROLE_ICON[displayRole] || ClipboardList
               return (
                 <button
                   key={u.id}
+                  type="button"
                   onClick={() => quick(u)}
                   className="group flex w-full items-center gap-3 rounded-xl bg-white p-3 text-left shadow-sm ring-1 ring-slate-200/70 transition hover:-translate-y-0.5 hover:shadow-md hover:ring-periwinkle/40"
                 >
@@ -154,7 +167,7 @@ export default function SignInModal({ open, onClose, mode = 'signin' }) {
                     <Icon className="h-4.5 w-4.5" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-bold">{u.role}</span>
+                    <span className="block text-sm font-bold">{displayRole}</span>
                     <span className="block truncate text-[11px] text-slate-500">{u.full_name} · {u.blurb}</span>
                   </span>
                   <ArrowUpRight className="h-4 w-4 text-slate-400 transition group-hover:text-periwinkle" />
