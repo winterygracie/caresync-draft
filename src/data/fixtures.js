@@ -8,8 +8,8 @@
 
 export const ROLES = {
   DOCTOR: 'Doctor',
-  REGISTRATION: 'Registration Staff',
-  CLINICAL: 'Clinical Staff',
+  BARANGGAY: 'Baranggay Health Worker',
+  NURSE: 'Nurse',
   CLERK: 'Administrative Clerk',
   CONTROLLER: 'Data Controller',
 }
@@ -17,8 +17,8 @@ export const ROLES = {
 // What each role can do. Enforced in the UI now; mirrored by API middleware later.
 export const PERMISSIONS = {
   [ROLES.DOCTOR]: ['patients.read', 'patients.history', 'visits.clinical'],
-  [ROLES.REGISTRATION]: ['patients.read', 'patients.register', 'visits.intake'],
-  [ROLES.CLINICAL]: ['patients.read', 'patients.history', 'visits.vitals', 'visits.intake'],
+  [ROLES.BARANGGAY HEALTH WORKER]: ['patients.read', 'patients.register', 'visits.intake'],
+  [ROLES.NURSE]: ['patients.read', 'patients.history', 'visits.vitals', 'visits.intake'],
   [ROLES.CLERK]: ['inventory.read', 'inventory.receive', 'inventory.dispense', 'inventory.adjust', 'patients.read'],
   [ROLES.CONTROLLER]: ['sync.monitor', 'patients.read', 'inventory.read'],
 }
