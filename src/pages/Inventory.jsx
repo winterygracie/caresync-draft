@@ -3,6 +3,32 @@ import { Ban, CircleCheck, Clock, History, Package, PackagePlus, Pill, Scale, Se
 import Modal from '../components/Modal.jsx'
 import { fmtDate, isExpired, planFefo, supplyById, todayISO, userName, useWorkspace } from '../lib/workspace.jsx'
 
+const LOW_STOCK_THRESHOLD = 10 // Low-stock threshold set to 10 units
+
+//Categories of medicine dropdown list
+const THERAPEUTIC_TYPES = [
+  'Antimicrobials (Antibiotics & Antivirals)',
+  'Cardiovascular & Antihypertensive Medicines',
+  'Respiratory & Anti-Allergy Medicines',
+  'Analgesics, Antipyretics, Anti-Inflammatory & Gout Medicines',
+  'Gastrointestinal & Antispasmodic Medicines',
+  'Endocrine, Metabolic, Vitamins, Supplements & Herbal Medicines',
+  'Dermatological, Ophthalmic, Vestibular, Hemostatic, Immunosuppressant & Local Anesthetic Medicines',
+]
+
+//Dosage form types
+const DOSAGE_FORM_TYPES = [
+  'Tablets (Standard, Film-Coated, Chewable, Modified Release)',
+  'Capsules',
+  'Syrups',
+  'Oral Suspensions & Oral Solutions',
+  'Oral Drops',
+  'Oral Powders, Effervescents & Oral Rehydration Salts (ORS)',
+  'Inhalers (Metered Dose Inhalers, Dry Powder Inhalers) & Respiratory Solutions',
+  'Topical & Ophthalmic Creams and Ointments',
+  'Injectables (Solutions & Powders for Injection)',
+]
+
 export default function Inventory() {
   const { batches, supplies, adjustments, dispensing, can } = useWorkspace()
   const [q, setQ] = useState('')
@@ -31,7 +57,8 @@ export default function Inventory() {
 
   const stats = [
     { n: rows.filter((r) => !r.expired).length, label: 'Active batches', icon: Package, tone: 'bg-fuchsia-100', ic: 'text-emerald-600' },
-    { n: lowItems.length, label: 'Items at reorder level', icon: TriangleAlert, tone: 'bg-sky-100', ic: 'text-amber-600' },
+    //Ensure 10 for low-stock threshold
+    { n: lowItems.length, label: 'Items at reorder level' (< 10), icon: TriangleAlert, tone: 'bg-sky-100', ic: 'text-amber-600' },
     { n: expired.length, label: 'Expired batches (blocked)', icon: Clock, tone: 'bg-rose-100', ic: 'text-rose-600' },
     { n: units, label: 'Usable units in stock', icon: CircleCheck, tone: 'bg-indigo-100', ic: 'text-indigo-600' },
   ]
@@ -177,6 +204,9 @@ function ReceiveDialog({ onClose }) {
 function DispenseDialog({ initialSupply, onClose }) {
   const { supplies, batches, patients, visits, dispense } = useWorkspace()
   const [supply_id, setSupply] = useState(initialSupply || 'MED-01')
+  //State for therapeutic type and dosage form type
+  const [therapeutic_type, setTherapeuticType] = useState(THERAPEUTIC_TYPES[0])
+  const [dosage_form, setDosageForm] = useState(DOSAGE_FORM_TYPES[0])
   const [quantity, setQty] = useState(initialSupply === undefined ? 40 : 1)
   const [patient_id, setPatient] = useState('')
   const [done, setDone] = useState(null)
