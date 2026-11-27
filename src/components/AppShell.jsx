@@ -68,8 +68,9 @@ export default function AppShell() {
   const isLocked = (n) => {
     // Sync Center is EXCLUSIVELY unlocked for Data Controller
     if (n.to === '/app/sync') return !controller
-    // Data Controller can only access Dashboard and Sync Center (Patients & Inventory are locked)
+    // Data Controller: ONLY Dashboard and Sync Center are unlocked; Patients & Inventory are locked
     if (controller) return n.to !== '/app' && n.to !== '/app/sync'
+    // Administrative Clerk: ONLY Inventory is unlocked
     if (clerk) return n.to !== '/app/inventory'
     if (isBhw && n.allowBhw === false) return true
     if (isBhw && n.allowBhw === true) return false
@@ -92,8 +93,9 @@ export default function AppShell() {
               return (
                 <div
                   key={n.to}
-                  className="flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-300"
-                  title={`Not available for ${user.role}`}
+                  aria-disabled="true"
+                  className="flex cursor-not-allowed select-none items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-300"
+                  title={`Locked for ${user.role}`}
                 >
                   <n.icon className="h-4.5 w-4.5" /> {n.label}{' '}
                   <Lock className="ml-auto h-3.5 w-3.5" />
@@ -117,7 +119,10 @@ export default function AppShell() {
               </NavLink>
             )
           })}
-          <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-300">
+          <div
+            aria-disabled="true"
+            className="flex cursor-not-allowed select-none items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-300"
+          >
             <CalendarDays className="h-4.5 w-4.5" /> Appointments{' '}
             <span className="ml-auto rounded bg-slate-100 px-1.5 text-[9px] text-slate-400">
               SOON
@@ -210,22 +215,37 @@ export default function AppShell() {
         </header>
 
         <nav className="flex gap-1 overflow-x-auto border-b border-slate-200/70 bg-white/70 px-4 py-2 lg:hidden">
-          {NAV.filter((n) => !isLocked(n)).map((n) => (
-            <NavLink
-              key={n.to}
-              to={n.to}
-              end={n.end}
-              className={({ isActive }) =>
-                `whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-bold ${
-                  isActive
-                    ? 'bg-indigo-deep text-white'
-                    : 'text-indigo-deep'
-                }`
-              }
-            >
-              {n.label}
-            </NavLink>
-          ))}
+          {NAV.map((n) => {
+            const locked = isLocked(n)
+            if (locked) {
+              return (
+                <span
+                  key={n.to}
+                  aria-disabled="true"
+                  className="flex cursor-not-allowed select-none items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-bold text-slate-300"
+                >
+                  {n.label}
+                  <Lock className="h-3 w-3" />
+                </span>
+              )
+            }
+            return (
+              <NavLink
+                key={n.to}
+                to={n.to}
+                end={n.end}
+                className={({ isActive }) =>
+                  `whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-bold ${
+                    isActive
+                      ? 'bg-indigo-deep text-white'
+                      : 'text-indigo-deep'
+                  }`
+                }
+              >
+                {n.label}
+              </NavLink>
+            )
+          })}
         </nav>
 
         {helpOpen && (
