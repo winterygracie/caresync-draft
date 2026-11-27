@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowUpRight, Ban, ClipboardList, Package, RefreshCw, Search, UserPlus, Users } from 'lucide-react'
+import { ArrowUpRight, Ban, ClipboardList, Package, RefreshCw, Search, Users } from 'lucide-react'
 import { PulseMark } from '../components/Logo.jsx'
 import { fmtDate, isExpired, supplyById, todayISO, useWorkspace } from '../lib/workspace.jsx'
 
@@ -18,7 +18,6 @@ export default function Dashboard() {
     { label: 'Stock alerts', value: expired.length + low.length, icon: Package, tone: 'bg-amber-50 text-amber-600', note: `${expired.length} expired · ${low.length} low stock` },
   ]
   const actions = [
-    can('patients.register') && { to: '/app/patients?register=1', label: 'Register patient', sub: 'Duplicate check & new Patient ID', icon: UserPlus },
     can('patients.read') && { to: '/app/patients', label: 'Search records', sub: 'Find by name or Patient ID', icon: Search },
     can('inventory.read') && { to: '/app/inventory', label: 'Manage stock', sub: 'Receive, dispense (FEFO), adjust', icon: Package },
     can('sync.monitor') && { to: '/app/sync', label: 'Sync Center', sub: 'Queues, logs & reconciliation', icon: RefreshCw },
