@@ -17,10 +17,10 @@ const ROLE_ICON = {
 // Allowed route prefixes per role (Sync Center is EXCLUSIVELY for Data Controller)
 export const ALLOWED_ROUTES = {
   [ROLES.DOCTOR]: ['/app', '/app/patients', '/app/inventory'],
-  [ROLES.REGISTRATION]: ['/app', '/app/patients', '/app/inventory'],
+  [ROLES.REGISTRATION]: ['/app', '/app/patients'],
   [ROLES.CLINICAL]: ['/app', '/app/patients', '/app/inventory'],
   [ROLES.CLERK]: ['/app/inventory'],
-  [ROLES.CONTROLLER]: ['/app/sync'], // ONLY Sync Center (excludes Dashboard, Patients & Records, and Inventory)
+  [ROLES.CONTROLLER]: ['/app', '/app/sync'], // Dashboard & Sync Center only
 }
 
 export const homeFor = (role) => {
@@ -36,8 +36,11 @@ export function RoleGuard({ children }) {
 
   if (!user) return children
 
-  // Data Controller: ONLY /app/sync (blocks Dashboard, Patients & Records, and Inventory)
-  if (user.role === ROLES.CONTROLLER && !pathname.startsWith('/app/sync')) {
+  // Data Controller: ONLY /app and /app/sync (blocks /app/patients and /app/inventory)
+  if (
+    user.role === ROLES.CONTROLLER &&
+    (pathname.startsWith('/app/patients') || pathname.startsWith('/app/inventory'))
+  ) {
     return <Navigate to="/app/sync" replace />
   }
 
