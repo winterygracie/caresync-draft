@@ -44,10 +44,13 @@ export default function AppShell() {
     year: 'numeric',
   })
 
-  const isBhw = user?.role === ROLES.REGISTRATION
+  if (!user) return null
+
+  const isBhw = user.role === ROLES.REGISTRATION
 
   const isLocked = (n) => {
     if (isBhw && n.allowBhw === false) return true
+    if (isBhw && n.allowBhw === true) return false
     return Boolean(n.perm && !can(n.perm))
   }
 
