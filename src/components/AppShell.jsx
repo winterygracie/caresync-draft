@@ -16,7 +16,7 @@ import {
 import { Wordmark } from './Logo.jsx'
 import SyncBadge from './SyncBadge.jsx'
 import { ROLES } from '../data/fixtures.js'
-import { initials, useWorkspace } from '../lib/workspace.jsx'
+import { initials, isClerk, isController, useWorkspace } from '../lib/workspace.jsx'
 
 const NAV = [
   { to: '/app', label: 'Dashboard', icon: LayoutGrid, end: true, allowBhw: true },
@@ -47,26 +47,28 @@ export default function AppShell() {
   if (!user) return null
 
   const isBhw = user.role === ROLES.REGISTRATION || user.role === 'Barangay Health Worker'
-  const isClerk = user.role === ROLES.CLERK || user.role === 'Administrative Clerk'
-  const isController = user.role === ROLES.CONTROLLER || user.role === 'Data Controller'
+  const clerk = isClerk(user)
+  const controller = isController(user)
 
   // Administrative Clerk: ONLY /app/inventory
-  if (isClerk && !pathname.startsWith('/app/inventory')) {
+  if (clerk && !pathname.startsWith('/app/inventory')) {
     return <Navigate to="/app/inventory" replace />
   }
 
   // Data Controller: ONLY /app/sync (blocks Dashboard, Patients & Records, and Inventory)
-  if (isController && !pathname.startsWith('/app/sync')) {
+  if (controller && !pathname.startsWith('/app/sync')) {
     return <Navigate to="/app/sync" replace />
   }
 
   const isLocked = (n) => {
-    if (isClerk) return n.to !== '/app/inventory'
-    if (isController) return n.to !== '/app/sync'
+    if (clerk) return n.to !== '/app/inventory'
+    if (controller) return n.to !== '/app/sync'
     if (isBhw && n.allowBhw === false) return true
     if (isBhw && n.allowBhw === true) return false
     return Boolean(n.perm && !can(n.perm))
   }
+
+  const visibleNav = NAV.filter((n) => !(controller || clerk) || !isLocked(n))
 
   return (
     <div className="workspace-bg flex min-h-screen">
@@ -78,7 +80,7 @@ export default function AppShell() {
           Workspace
         </p>
         <nav className="mt-3 space-y-1">
-          {NAV.map((n) => {
+          {visibleNav.map((n) => {
             const locked = isLocked(n)
             if (locked) {
               return (
@@ -109,12 +111,14 @@ export default function AppShell() {
               </NavLink>
             )
           })}
-          <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-300">
-            <CalendarDays className="h-4.5 w-4.5" /> Appointments{' '}
-            <span className="ml-auto rounded bg-slate-100 px-1.5 text-[9px] text-slate-400">
-              SOON
-            </span>
-          </div>
+          {!controller && !clerk && (
+            <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-300">
+              <CalendarDays className="h-4.5 w-4.5" /> Appointments{' '}
+              <span className="ml-auto rounded bg-slate-100 px-1.5 text-[9px] text-slate-400">
+                SOON
+              </span>
+            </div>
+          )}
         </nav>
 
         <div className="mt-auto rounded-2xl bg-indigo-deep p-4 text-white">
@@ -172,7 +176,7 @@ export default function AppShell() {
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
             <SyncBadge
               onClick={() =>
-                !isBhw && !isClerk && (isController || can('sync.monitor'))
+                !isBhw && !clerk && (controller || can('sync.monitor'))
                   ? navigate('/app/sync')
                   : setHelpOpen(!helpOpen)
               }
