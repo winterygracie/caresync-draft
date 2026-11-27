@@ -11,21 +11,13 @@ import {
 } from 'lucide-react'
 import Modal from './Modal.jsx'
 import { PulseMark } from './Logo.jsx'
-import { DEMO_PASSWORD, USERS } from '../data/fixtures.js'
+import { DEMO_PASSWORD, ROLES, USERS } from '../data/fixtures.js'
 import { useWorkspace } from '../lib/workspace.jsx'
-
-const ROLES = {
-  DOCTOR: 'Doctor',
-  REGISTRATION: 'Barangay Health Worker',
-  CLINICAL: 'Nurse',
-  CLERK: 'Administrative Clerk',
-  CONTROLLER: 'Data Controller',
-}
 
 const ROLE_ICON = {
   [ROLES.DOCTOR]: Stethoscope,
-  [ROLES.REGISTRATION]: Users,
-  [ROLES.CLINICAL]: HeartPulse,
+  [ROLES.BARANGAY]: Users,
+  [ROLES.NURSE]: HeartPulse,
   [ROLES.CLERK]: ClipboardList,
   [ROLES.CONTROLLER]: Database,
 }
