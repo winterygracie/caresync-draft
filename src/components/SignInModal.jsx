@@ -20,7 +20,7 @@ export const ALLOWED_ROUTES = {
   [ROLES.REGISTRATION]: ['/app', '/app/patients'],
   [ROLES.CLINICAL]: ['/app', '/app/patients', '/app/inventory'],
   [ROLES.CLERK]: ['/app/inventory'],
-  [ROLES.CONTROLLER]: ['/app', '/app/sync'], // Dashboard & Sync Center only
+  [ROLES.CONTROLLER]: ['/app', '/app/sync'], // ONLY Dashboard and Sync Center
 }
 
 export const homeFor = (role) => {
@@ -36,7 +36,7 @@ export function RoleGuard({ children }) {
 
   if (!user) return children
 
-  // Data Controller: ONLY /app and /app/sync (blocks /app/patients and /app/inventory)
+  // Data Controller: ONLY /app and /app/sync (Patients & Inventory are locked)
   if (
     user.role === ROLES.CONTROLLER &&
     (pathname.startsWith('/app/patients') || pathname.startsWith('/app/inventory'))
