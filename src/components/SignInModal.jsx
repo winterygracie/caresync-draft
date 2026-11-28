@@ -155,7 +155,7 @@ export default function SignInModal({ open, onClose, mode = 'signin' }) {
           <div className="mt-3 space-y-2">
             {USERS.map((u) => {
               const displayRole = formatRoleLabel(u.role)
-              const Icon = ROLE_ICON[displayRole] || ClipboardList
+              const Icon = ROLE_ICON[u.role] || ClipboardList
               return (
                 <button
                   key={u.id}
