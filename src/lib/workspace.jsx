@@ -207,13 +207,32 @@ export function WorkspaceProvider({ children }) {
       diagnosis: data?.diagnosis || '',
       clinical_notes: data?.clinical_notes || '',
       prescription_notes: data?.prescription_notes || '',
+      queue_status: 'waiting',
       sync_status: status(),
     }
     setVisits((v) => [visit, ...v])
     if (!isOnline) log('pending', `Visit ${visit.visit_id} queued for ${patient_id}`)
     return visit
   }
-
+  
+const markVisitDone = (visit_id) => {
+    const syncState = status()
+    setVisits((prev) =>
+      prev.map((v) =>
+        v.visit_id === visit_id
+          ? {
+              ...v,
+              queue_status: 'done',
+              completed_by: user?.id,
+              completed_at: new Date().toISOString(),
+              sync_status: syncState,
+            }
+          : v
+      )
+    )
+    if (!isOnline) log('pending', `Visit ${visit_id} marked done offline`)
+  }
+  
   const receiveBatch = ({ supply_id, item_name, medicine_type, dosage_form, unit, batch_number, expiration_date, quantity }) => {
     const trimmedName = (item_name || '').trim()
     const matchedSupply =
@@ -361,7 +380,7 @@ export function WorkspaceProvider({ children }) {
   const value = {
     user, signIn, signOut, can, canAccessDashboard, canAccessPatients, canAccessInventory, canAccessSync,
     patients, visits, batches, dispensing, adjustments, supplies, users: USERS,
-    registerPatient, addVisit, receiveBatch, dispense, adjustStock,
+    registerPatient, addVisit, markVisitDone, receiveBatch, dispense, adjustStock,
     isOnline, simulateOffline, setSimulateOffline, syncing, pendingCount, lastSync, syncLog, runSync,
   }
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>
