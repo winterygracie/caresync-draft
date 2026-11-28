@@ -40,11 +40,7 @@ export default function Patients() {
     autoFocus
   />
 </label>
-        {can('patients.register') && (
-          <button onClick={() => setRegisterOpen(true)} className="ml-auto inline-flex items-center gap-2 rounded-xl bg-indigo-deep px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-indigo-900/20 transition hover:brightness-110">
-            <Plus className="h-4 w-4" /> Register patient
-          </button>
-        )}
+        
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_1.15fr]">
