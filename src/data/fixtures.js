@@ -16,9 +16,9 @@ export const ROLES = {
 
 // What each role can do. Enforced in the UI now; mirrored by API middleware later.
 export const PERMISSIONS = {
-  [ROLES.DOCTOR]: ['patients.read', 'patients.history', 'visits.clinical'],
+  [ROLES.DOCTOR]: ['patients.read', 'patients.history', 'visits.clinical', 'visits.complete'],
   [ROLES.BARANGAY_HEALTH_WORKER]: ['patients.read', 'patients.register', 'visits.intake'],
-  [ROLES.NURSE]: ['patients.read', 'patients.history', 'visits.vitals', 'visits.intake'],
+  [ROLES.NURSE]: ['patients.read', 'patients.history', 'visits.vitals', 'visits.intake', 'visits.complete'],
   [ROLES.CLERK]: ['inventory.read', 'inventory.receive', 'inventory.dispense', 'inventory.adjust', 'patients.read'],
   [ROLES.CONTROLLER]: ['sync.monitor', 'patients.read', 'inventory.read'],
 }
@@ -69,10 +69,10 @@ export const PATIENTS = [
   P(10, 'Marvin', 'Sumalinog', '2019-09-30', 'Male', '09671234510'),
 ]
 
-const V = (visit_id, patient_id, staff, visit_date, purpose, vitals, chief_complaint, diagnosis, clinical_notes, prescription_notes) => ({
+const V = (visit_id, patient_id, staff, visit_date, purpose, vitals, chief_complaint, diagnosis, clinical_notes, prescription_notes, queue_status = 'done') => ({
   visit_id, patient_id, attending_staff_id: staff, visit_date, purpose_of_visit: purpose,
-  vitals_json: vitals, chief_complaint, diagnosis, clinical_notes, prescription_notes, sync_status: 'synced',
-})
+  vitals_json: vitals, chief_complaint, diagnosis, clinical_notes, prescription_notes, queue_status, sync_status: 'synced',
+}) 
 
 export const VISITS = [
   V('VIS-0001', 'AMP-2026-0001', 1, '2026-06-02', 'General consultation', { bp: '120/80', temp: 37.8, weight: 58, pulse: 88 }, 'Fever and body aches for 2 days', 'Viral fever', 'Advised rest and hydration. Return if fever persists beyond 3 days.', 'Paracetamol 500 mg, 1 tab every 6 hrs as needed'),
