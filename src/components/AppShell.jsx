@@ -20,7 +20,7 @@ import { initials, isClerk, isController, useWorkspace } from '../lib/workspace.
 
 const NAV = [
   { to: '/app', label: 'Dashboard', icon: LayoutGrid, end: true, allowBhw: true },
-  { to: '/app/patients', label: 'Patients & Records', icon: Users, perm: 'patients.read', allowBhw: false },
+  { to: '/app/patients', label: 'Patients & Records', icon: Users, perm: 'patients.read', allowBhw: true },
   { to: '/app/inventory', label: 'Inventory', icon: Package, perm: 'inventory.read', allowBhw: false },
   { to: '/app/sync', label: 'Sync Center', icon: Database, perm: 'sync.monitor', allowBhw: false },
 ]
