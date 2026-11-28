@@ -9,8 +9,8 @@ import {
   Users,
   HeartPulse,
 } from 'lucide-react';
-import Modal from './Modal.jsx';
-import { PulseMark } from './Logo.jsx';
+import Modal from "../components/Modal.jsx";
+import { PulseMark } from "../components/Logo.jsx";
 import { DEMO_PASSWORD, ROLES, USERS } from '../data/fixtures.js';
 import { useWorkspace } from '../lib/workspace.jsx';
 
