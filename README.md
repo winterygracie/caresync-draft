@@ -44,5 +44,5 @@ CareSync is a web application built with Vite and JavaScript (`96.7%` JavaScript
 
 ### 3. Start the development server
 
-```Launch the Vite dev server and open the local URL shown in the terminal (usually http://localhost:5173)```
+Launch the Vite dev server and open the local URL shown in the terminal (usually http://localhost:5173)
 ```npm run dev```
