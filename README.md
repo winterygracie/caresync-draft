@@ -34,14 +34,15 @@ CareSync is a web application built with Vite and JavaScript (`96.7%` JavaScript
 
 1. Clone the repository:
 
-```bash
+```bash 
 git clone https://github.com/winterygracie/caresync-draft.git
 cd caresync-draft 
 
-2. Install dependencies
+
+### 2. Install dependencies
 
 npm install
 
-3. Start the development server
+### 3. Start the development server
 Launch the Vite dev server and open the local URL shown in the terminal (usually http://localhost:5173)
 npm run dev
