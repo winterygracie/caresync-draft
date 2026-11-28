@@ -14,22 +14,27 @@ const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random
 // Role matchers
 export const isClerk = (u) => /clerk/i.test(`${u?.role || ''} ${u?.title || ''}`)
 export const isController = (u) => /controller/i.test(`${u?.role || ''} ${u?.title || ''}`)
+export const isBhw = (u) => /barangay health worker|\bbhw\b/i.test(`${u?.role || ''} ${u?.title || ''}`)
 
 const PATIENT_PERM = /^(patients?|visits?)[._:\-]/i
 const INVENTORY_PERM = /^(inventory|supplies|batches|dispens)/i
 const SYNC_PERM = /^sync[._:\-]/i
 
+const mergeSupplies = (baseSupplies, customSupplies) => {
+  const next = baseSupplies.map((s) => ({ ...s }))
+  if (!Array.isArray(customSupplies)) return next
+  for (const item of customSupplies) {
+    if (!item?.supply_id) continue
+    const idx = next.findIndex((s) => s.supply_id === item.supply_id)
+    if (idx === -1) next.push({ ...item })
+    else next[idx] = { ...next[idx], ...item }
+  }
+  return next
+}
+
 const loadState = () => {
   try {
-    const parsed = JSON.parse(localStorage.getItem(STATE_KEY)) || {}
-    if (Array.isArray(parsed.customSupplies)) {
-      for (const item of parsed.customSupplies) {
-        if (!SUPPLIES.some((s) => s.supply_id === item.supply_id)) {
-          SUPPLIES.push(item)
-        }
-      }
-    }
-    return parsed
+    return JSON.parse(localStorage.getItem(STATE_KEY)) || {}
   } catch {
     return {}
   }
@@ -90,7 +95,7 @@ export function WorkspaceProvider({ children }) {
   const [batches, setBatches] = useState(() => saved.batches || BATCHES)
   const [dispensing, setDispensing] = useState(() => saved.dispensing || DISPENSING)
   const [adjustments, setAdjustments] = useState(() => saved.adjustments || STOCK_ADJUSTMENTS)
-  const [supplies, setSupplies] = useState(() => [...SUPPLIES])
+  const [supplies, setSupplies] = useState(() => mergeSupplies(SUPPLIES, saved.customSupplies))
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine)
   const [simulateOffline, setSimulateOffline] = useState(false)
   const [syncing, setSyncing] = useState(false)
@@ -137,16 +142,23 @@ export function WorkspaceProvider({ children }) {
       if (!INVENTORY_PERM.test(perm)) return false
       return (PERMISSIONS[user.role] || []).includes(perm)
     }
-    return (PERMISSIONS[user.role] || []).includes(perm)
+    const rolePerms = PERMISSIONS[user.role]
+    if (Array.isArray(rolePerms)) {
+      return rolePerms.includes(perm)
+    }
+    if (isBhw(user)) {
+      return PATIENT_PERM.test(perm)
+    }
+    return false
   }, [user])
 
   const canAccessDashboard = !!user && !isClerk(user)
-  const canAccessPatients = !!user && !isClerk(user) && !isController(user)
+  const canAccessPatients = !!user && (isBhw(user) || (!isClerk(user) && !isController(user)))
   const canAccessInventory = !!user && !isController(user)
   const canAccessSync = !!user && isController(user)
 
   const signIn = useCallback((email) => {
-    const found = USERS.find((u) => u.email.toLowerCase() === email.trim().toLowerCase())
+    const found = USERS.find((u) => u.email.toLowerCase() === (email || '').trim().toLowerCase())
     if (!found) return null
     localStorage.setItem(SESSION_KEY, JSON.stringify(found))
     setUser(found)
@@ -164,9 +176,17 @@ export function WorkspaceProvider({ children }) {
     else { seq.current.patient += 1; patient_id = `AMP-2026-${String(seq.current.patient).padStart(4, '0')}` }
     const now = new Date().toISOString()
     const patient = {
-      patient_id, client_uuid: uuid(), first_name: data.first_name.trim(), last_name: data.last_name.trim(), dob: data.dob,
-      gender: data.gender, address: data.address?.trim() || DEFAULT_ADDRESS, contact_number: data.contact_number?.trim() || '',
-      created_at: now, updated_at: now, sync_status: status(),
+      patient_id,
+      client_uuid: uuid(),
+      first_name: (data?.first_name || '').trim(),
+      last_name: (data?.last_name || '').trim(),
+      dob: data?.dob || '',
+      gender: data?.gender || '',
+      address: data?.address?.trim() || DEFAULT_ADDRESS,
+      contact_number: data?.contact_number?.trim() || '',
+      created_at: now,
+      updated_at: now,
+      sync_status: status(),
     }
     setPatients((p) => [patient, ...p])
     if (temp) log('pending', `Patient ${patient.first_name} ${patient.last_name} saved offline as ${patient_id}`)
@@ -176,10 +196,18 @@ export function WorkspaceProvider({ children }) {
   const addVisit = (patient_id, data) => {
     seq.current.visit += 1
     const visit = {
-      visit_id: `VIS-${String(seq.current.visit).padStart(4, '0')}`, client_uuid: uuid(), patient_id,
-      attending_staff_id: user?.id, visit_date: todayISO(), purpose_of_visit: data.purpose_of_visit,
-      vitals_json: data.vitals_json || {}, chief_complaint: data.chief_complaint || '', diagnosis: data.diagnosis || '',
-      clinical_notes: data.clinical_notes || '', prescription_notes: data.prescription_notes || '', sync_status: status(),
+      visit_id: `VIS-${String(seq.current.visit).padStart(4, '0')}`,
+      client_uuid: uuid(),
+      patient_id,
+      attending_staff_id: user?.id,
+      visit_date: todayISO(),
+      purpose_of_visit: data?.purpose_of_visit || '',
+      vitals_json: data?.vitals_json || {},
+      chief_complaint: data?.chief_complaint || '',
+      diagnosis: data?.diagnosis || '',
+      clinical_notes: data?.clinical_notes || '',
+      prescription_notes: data?.prescription_notes || '',
+      sync_status: status(),
     }
     setVisits((v) => [visit, ...v])
     if (!isOnline) log('pending', `Visit ${visit.visit_id} queued for ${patient_id}`)
@@ -189,34 +217,45 @@ export function WorkspaceProvider({ children }) {
   const receiveBatch = ({ supply_id, item_name, medicine_type, dosage_form, unit, batch_number, expiration_date, quantity }) => {
     const trimmedName = (item_name || '').trim()
     const matchedSupply =
-      SUPPLIES.find((s) => s.supply_id === supply_id) ||
-      (trimmedName ? SUPPLIES.find((s) => s.item_name.toLowerCase() === trimmedName.toLowerCase()) : null)
+      supplies.find((s) => s.supply_id === supply_id) ||
+      (trimmedName ? supplies.find((s) => s.item_name.toLowerCase() === trimmedName.toLowerCase()) : null)
 
     let resolvedSupplyId = matchedSupply?.supply_id
-    if (!resolvedSupplyId && trimmedName) {
-      resolvedSupplyId = `MED-${uuid().slice(0, 6).toUpperCase()}`
-      const newSupply = {
-        supply_id: resolvedSupplyId,
-        item_name: trimmedName,
-        category: medicine_type || 'Uncategorized',
-        dosage_form: dosage_form || '',
-        unit: unit || 'unit',
-        reorder_level: 10,
+    setSupplies((prev) => {
+      if (!resolvedSupplyId && trimmedName) {
+        resolvedSupplyId = `MED-${uuid().slice(0, 6).toUpperCase()}`
+        return [
+          ...prev,
+          {
+            supply_id: resolvedSupplyId,
+            item_name: trimmedName,
+            category: medicine_type || 'Uncategorized',
+            dosage_form: dosage_form || '',
+            unit: unit || 'unit',
+            reorder_level: 10,
+          },
+        ]
       }
-      SUPPLIES.push(newSupply)
-      setSupplies([...SUPPLIES])
-    } else if (matchedSupply && (medicine_type || dosage_form)) {
-      if (medicine_type) matchedSupply.category = medicine_type
-      if (dosage_form) matchedSupply.dosage_form = dosage_form
-      setSupplies([...SUPPLIES])
-    }
+      if (matchedSupply && (medicine_type || dosage_form)) {
+        return prev.map((s) =>
+          s.supply_id === matchedSupply.supply_id
+            ? {
+                ...s,
+                category: medicine_type || s.category,
+                dosage_form: dosage_form || s.dosage_form,
+              }
+            : s
+        )
+      }
+      return prev
+    })
 
     const batch = {
       batch_id: `BAT-${uuid().slice(0, 6).toUpperCase()}`,
       supply_id: resolvedSupplyId || supply_id,
       medicine_type: medicine_type || matchedSupply?.category || null,
       dosage_form: dosage_form || matchedSupply?.dosage_form || null,
-      batch_number: batch_number.trim(),
+      batch_number: (batch_number || '').trim(),
       expiration_date,
       quantity_on_hand: Number(quantity),
       received_date: todayISO(),
@@ -235,10 +274,18 @@ export function WorkspaceProvider({ children }) {
     const rows = plan.allocations.map((a) => {
       seq.current.dispense += 1
       return {
-        transaction_id: `DSP-${String(seq.current.dispense).padStart(4, '0')}`, client_uuid: uuid(), patient_id: patient_id || null,
-        visit_id: visit_id || null, supply_id, therapeutic_type: therapeutic_type || null, dosage_form: dosage_form || null,
-        batch_id: a.batch.batch_id, quantity_dispensed: a.quantity, dispensed_by: user?.id,
-        dispensed_at: new Date().toISOString(), sync_status: status(),
+        transaction_id: `DSP-${String(seq.current.dispense).padStart(4, '0')}`,
+        client_uuid: uuid(),
+        patient_id: patient_id || null,
+        visit_id: visit_id || null,
+        supply_id,
+        therapeutic_type: therapeutic_type || null,
+        dosage_form: dosage_form || null,
+        batch_id: a.batch.batch_id,
+        quantity_dispensed: a.quantity,
+        dispensed_by: user?.id,
+        dispensed_at: new Date().toISOString(),
+        sync_status: status(),
       }
     })
     setDispensing((d) => [...rows, ...d])
@@ -248,13 +295,21 @@ export function WorkspaceProvider({ children }) {
 
   const adjustStock = ({ batch_id, adjusted_qty, reason, note }) => {
     const batch = batches.find((b) => b.batch_id === batch_id)
+    if (!batch) return null
     seq.current.adjust += 1
+    const nextQty = Number(adjusted_qty)
     const row = {
-      adjustment_id: `ADJ-${String(seq.current.adjust).padStart(4, '0')}`, batch_id, previous_qty: batch.quantity_on_hand,
-      adjusted_qty: Number(adjusted_qty), reason, note, adjusted_by: user?.id, adjusted_at: new Date().toISOString(),
+      adjustment_id: `ADJ-${String(seq.current.adjust).padStart(4, '0')}`,
+      batch_id,
+      previous_qty: batch.quantity_on_hand,
+      adjusted_qty: nextQty,
+      reason,
+      note,
+      adjusted_by: user?.id,
+      adjusted_at: new Date().toISOString(),
     }
     setAdjustments((a) => [row, ...a])
-    setBatches((bs) => bs.map((b) => (b.batch_id === batch_id ? { ...b, quantity_on_hand: Number(adjusted_qty) } : b)))
+    setBatches((bs) => bs.map((b) => (b.batch_id === batch_id ? { ...b, quantity_on_hand: nextQty } : b)))
     return row
   }
 
@@ -316,4 +371,4 @@ export const useWorkspace = () => useContext(WorkspaceContext)
 export const userName = (id) => USERS.find((u) => u.id === id)?.full_name || '—'
 export const supplyById = (id) => SUPPLIES.find((s) => s.supply_id === id)
 export const fmtDate = (iso) => (iso ? new Date(iso.length === 10 ? `${iso}T00:00:00` : iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—')
-export const initials = (name) => name.replace(/^(Dr|Nurse)\.?\s+/i, '').split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase()
+export const initials = (name) => (name || '').replace(/^(Dr|Nurse)\.?\s+/i, '').trim().split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase()
