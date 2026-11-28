@@ -23,8 +23,8 @@ const ROLE_ICON = {
 }
 
 const ROLE_LABELS = {
-  'Registration Staff': 'Barangay Health Worker',
-  'Clinical Staff': 'Nurse',
+  'Barangay Health Worker': 'Registration Staff',
+  'Nurse': 'Clinical Staff',
 }
 
 export const formatRoleLabel = (role) => ROLE_LABELS[role] || role
